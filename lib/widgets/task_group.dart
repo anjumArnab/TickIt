@@ -8,6 +8,8 @@ class TaskGroup extends StatefulWidget {
   final List<String> subtasks;
   final bool isSelected;
   final ValueChanged<bool>? onSelectionChanged;
+  final String? workspace; // New workspace parameter
+  final Color? workspaceColor; // Optional workspace color
 
   const TaskGroup({
     super.key,
@@ -18,6 +20,8 @@ class TaskGroup extends StatefulWidget {
     required this.subtasks,
     this.isSelected = false,
     this.onSelectionChanged,
+    this.workspace,
+    this.workspaceColor,
   });
 
   @override
@@ -39,9 +43,36 @@ class _TaskGroupState extends State<TaskGroup> {
     // Base height calculation
     double baseHeight =
         50; // Approximate height for title, time, and progress rows
+
+    // Add workspace height if present
+    if (widget.workspace != null) {
+      baseHeight += 25; // Additional height for workspace container
+    }
+
     double subtaskHeight =
         widget.subtasks.length * 35; // Each subtask is approximately 35px tall
     return baseHeight + subtaskHeight;
+  }
+
+  // Get workspace color or default
+  Color _getWorkspaceColor() {
+    if (widget.workspaceColor != null) {
+      return widget.workspaceColor!;
+    }
+
+    // Default colors based on workspace name
+    switch (widget.workspace?.toLowerCase()) {
+      case 'personal':
+        return Colors.green;
+      case 'work':
+        return Colors.blue;
+      case 'freelance':
+        return Colors.purple;
+      case 'study':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
   }
 
   @override
@@ -120,6 +151,40 @@ class _TaskGroupState extends State<TaskGroup> {
                     widget.progress,
                     style: TextStyle(color: Colors.grey[700], fontSize: 14),
                   ),
+                  // Workspace container - positioned in the red highlighted area
+                  if (widget.workspace != null) ...[
+                    SizedBox(width: 12),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _getWorkspaceColor().withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _getWorkspaceColor().withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.work_outline,
+                            size: 12,
+                            color: _getWorkspaceColor(),
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            widget.workspace!,
+                            style: TextStyle(
+                              color: _getWorkspaceColor(),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
               SizedBox(height: 6),
