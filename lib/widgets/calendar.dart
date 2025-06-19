@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 class ExpandedCalendar extends StatefulWidget {
-  final VoidCallback? onClose;
-
-  const ExpandedCalendar({super.key, this.onClose});
+  const ExpandedCalendar({super.key});
 
   @override
   State<ExpandedCalendar> createState() => _ExpandedCalendarState();
@@ -64,9 +62,8 @@ class _ExpandedCalendarState extends State<ExpandedCalendar> {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
-        mainAxisSize: MainAxisSize.min, // Important: Let the column size itself
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Header with close button
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -95,22 +92,6 @@ class _ExpandedCalendarState extends State<ExpandedCalendar> {
                     ),
                   ),
                   SizedBox(width: 6),
-                  // Close button
-                  GestureDetector(
-                    onTap: widget.onClose,
-                    child: Container(
-                      padding: EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Icon(
-                        Icons.close,
-                        size: 14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ],
