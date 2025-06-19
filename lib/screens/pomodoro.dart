@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'dart:async';
 
@@ -165,8 +167,8 @@ class _PomodoroTimerState extends State<PomodoroTimer> {
 
             // Timer display
             Container(
-              width: 280,
-              height: 280,
+              width: 200,
+              height: 200,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white,
@@ -191,7 +193,7 @@ class _PomodoroTimerState extends State<PomodoroTimer> {
               ),
             ),
 
-            SizedBox(height: 50),
+            SizedBox(height: 10),
 
             // Control buttons
             Row(
