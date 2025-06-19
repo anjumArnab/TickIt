@@ -17,7 +17,7 @@ class DateTaskCard extends StatelessWidget {
   final EdgeInsetsGeometry? margin;
 
   const DateTaskCard({
-    Key? key,
+    super.key,
     required this.date,
     required this.taskCount,
     this.onTap,
@@ -32,7 +32,7 @@ class DateTaskCard extends StatelessWidget {
     this.borderWidth,
     this.padding,
     this.margin,
-  }) : super(key: key);
+  });
 
   String _formatDate(DateTime date) {
     DateTime now = DateTime.now();
