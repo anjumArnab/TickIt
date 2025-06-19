@@ -1,4 +1,9 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
+import 'package:tick_it/screens/taskpage.dart';
+import '../screens/pomodoro.dart';
+import '../screens/workspace.dart';
 import '../model/task.dart';
 import '../widgets/calendar.dart';
 import '../widgets/date_task_card.dart';
@@ -18,7 +23,7 @@ class _HomepageState extends State<Homepage>
   DateTime? _selectedDay;
   bool _showCalendar = false;
 
-  // Sample tasks data grouped by date
+  // Sample tasks data grouped by date with workspace information
   final List<Task> _allTasks = [
     // Today's tasks
     Task(
@@ -28,6 +33,8 @@ class _HomepageState extends State<Homepage>
       flagColor: Colors.orange,
       subtasks: ['Create wireframe', 'Add images', 'Review layout'],
       date: DateTime.now(),
+      workspace: 'Work',
+      workspaceColor: Colors.blue,
     ),
     Task(
       title: 'Team Meeting',
@@ -36,6 +43,8 @@ class _HomepageState extends State<Homepage>
       flagColor: Colors.blue,
       subtasks: ['Prepare agenda', 'Review documents', 'Send invites'],
       date: DateTime.now(),
+      workspace: 'Work',
+      workspaceColor: Colors.blue,
     ),
 
     // Tomorrow's tasks
@@ -51,6 +60,8 @@ class _HomepageState extends State<Homepage>
         'Merge changes',
       ],
       date: DateTime.now().add(Duration(days: 1)),
+      workspace: 'Freelance',
+      workspaceColor: Colors.purple,
     ),
     Task(
       title: 'Client Presentation',
@@ -66,6 +77,8 @@ class _HomepageState extends State<Homepage>
         'Schedule follow-up',
       ],
       date: DateTime.now().add(Duration(days: 1)),
+      workspace: 'Freelance',
+      workspaceColor: Colors.purple,
     ),
 
     // Day after tomorrow
@@ -81,6 +94,8 @@ class _HomepageState extends State<Homepage>
         'Document changes',
       ],
       date: DateTime.now().add(Duration(days: 2)),
+      workspace: 'Personal',
+      workspaceColor: Colors.green,
     ),
   ];
 
@@ -127,6 +142,77 @@ class _HomepageState extends State<Homepage>
     return groupedTasks;
   }
 
+  // Get the current screen based on selected bottom nav index
+  Widget _getCurrentScreen() {
+    switch (selectedBottomIndex) {
+      case 0:
+        return _buildTimelineScreen();
+      case 1:
+        return PomodoroTimer();
+      case 2:
+        return Workspace();
+      default:
+        return _buildTimelineScreen();
+    }
+  }
+
+  // Build the timeline screen (original homepage content)
+  Widget _buildTimelineScreen() {
+    return GestureDetector(
+      // Close calendar when tapping outside
+      onTap: _closeCalendar,
+      child: Column(
+        children: [
+          // Tab Bar - only show for timeline
+          Container(
+            color: Colors.white,
+            child: TabBar(
+              controller: _tabController,
+              onTap: (index) {
+                // Close calendar when switching tabs
+                _closeCalendar();
+              },
+              tabs: [
+                Tab(text: 'All todos'),
+                Tab(text: 'Today'),
+                Tab(text: 'Upcoming'),
+                Tab(text: 'Completed'),
+              ],
+              labelColor: Colors.blue[800],
+              unselectedLabelColor: Colors.grey[600],
+              indicatorColor: Colors.blue[800],
+              labelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              unselectedLabelStyle: TextStyle(
+                fontWeight: FontWeight.normal,
+                fontSize: 16,
+              ),
+            ),
+          ),
+
+          // Tab Bar View
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildAllTodosTab(),
+                _buildTodayTab(),
+                _buildUpcomingTab(),
+                _buildCompletedTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navToTaskPage(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => AddTaskPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -142,71 +228,20 @@ class _HomepageState extends State<Homepage>
             fontWeight: FontWeight.bold,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.add, color: Colors.black),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 10),
-        ],
       ),
-      body: GestureDetector(
-        // Close calendar when tapping outside
-        onTap: _closeCalendar,
-        child: Column(
-          children: [
-            // Tab Bar
-            Container(
-              color: Colors.white,
-              child: TabBar(
-                controller: _tabController,
-                onTap: (index) {
-                  // Close calendar when switching tabs
-                  _closeCalendar();
-                },
-                tabs: [
-                  Tab(text: 'All todos'),
-                  Tab(text: 'Today'),
-                  Tab(text: 'Upcoming'),
-                  Tab(text: 'Completed'),
-                ],
-                labelColor: Colors.blue[800],
-                unselectedLabelColor: Colors.grey[600],
-                indicatorColor: Colors.blue[800],
-                labelStyle: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                ),
-                unselectedLabelStyle: TextStyle(
-                  fontWeight: FontWeight.normal,
-                  fontSize: 16,
-                ),
-              ),
-            ),
+      body: _getCurrentScreen(),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.green,
+        shape: const CircleBorder(),
+        onPressed: () => _navToTaskPage(context),
+        child: Icon(Icons.add, color: Colors.white),
+      ),
 
-            // Tab Bar View
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildAllTodosTab(),
-                  _buildTodayTab(),
-                  _buildUpcomingTab(),
-                  _buildCompletedTab(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Calendar section that expands from bottom nav
-          if (selectedBottomIndex == 0 && _showCalendar)
-            ExpandedCalendar(
-              onClose: _closeCalendar, // Pass close callback
-            ),
+          // Calendar section that expands from bottom nav - only for timeline
+          if (selectedBottomIndex == 0 && _showCalendar) ExpandedCalendar(),
 
           // Bottom Navigation Bar
           _buildBottomNavigationBar(),
@@ -256,6 +291,9 @@ class _HomepageState extends State<Homepage>
                         progress: task.progress,
                         flagColor: task.flagColor,
                         subtasks: task.subtasks,
+                        workspace: task.workspace, // Pass workspace
+                        workspaceColor:
+                            task.workspaceColor, // Pass workspace color
                       ),
                     );
                   }).toList(),
@@ -303,6 +341,8 @@ class _HomepageState extends State<Homepage>
                         progress: task.progress,
                         flagColor: task.flagColor,
                         subtasks: task.subtasks,
+                        workspace: task.workspace,
+                        workspaceColor: task.workspaceColor,
                       ),
                     );
                   }).toList(),
@@ -368,6 +408,8 @@ class _HomepageState extends State<Homepage>
                         progress: task.progress,
                         flagColor: task.flagColor,
                         subtasks: task.subtasks,
+                        workspace: task.workspace,
+                        workspaceColor: task.workspaceColor,
                       ),
                     );
                   }).toList(),
@@ -407,7 +449,6 @@ class _HomepageState extends State<Homepage>
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            // ignore: deprecated_member_use
             color: Colors.grey.withOpacity(0.1),
             spreadRadius: 1,
             blurRadius: 10,
@@ -425,21 +466,15 @@ class _HomepageState extends State<Homepage>
           ),
           _buildBottomNavItem(
             Icons.view_module,
-            'Board',
+            'Pomodoro',
             1,
             selectedBottomIndex == 1,
           ),
           _buildBottomNavItem(
-            Icons.help_outline,
-            'Unplanned',
-            2,
-            selectedBottomIndex == 2,
-          ),
-          _buildBottomNavItem(
             Icons.folder_outlined,
             'Workspace',
-            3,
-            selectedBottomIndex == 3,
+            2,
+            selectedBottomIndex == 2,
           ),
         ],
       ),
@@ -455,13 +490,22 @@ class _HomepageState extends State<Homepage>
     return GestureDetector(
       onTap: () {
         setState(() {
-          selectedBottomIndex = index;
-          // Show calendar when Timeline is tapped, hide for others
+          // Handle calendar logic only for timeline tab
           if (index == 0) {
-            _showCalendar = !_showCalendar; // Toggle calendar on Timeline tap
+            if (selectedBottomIndex == 0) {
+              // If already on timeline, toggle calendar
+              _showCalendar = !_showCalendar;
+            } else {
+              // Switching to timeline, don't show calendar initially
+              _showCalendar = false;
+            }
           } else {
-            _showCalendar = false; // Hide calendar for other tabs
+            // Hide calendar for other tabs
+            _showCalendar = false;
           }
+
+          // Update selected index
+          selectedBottomIndex = index;
         });
       },
       child: Container(
