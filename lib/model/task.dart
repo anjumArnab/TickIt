@@ -7,6 +7,8 @@ class Task {
   final Color flagColor;
   final List<String> subtasks;
   final DateTime date;
+  final String? workspace; // New workspace field
+  final Color? workspaceColor; // Optional workspace color
 
   Task({
     required this.title,
@@ -15,5 +17,7 @@ class Task {
     required this.flagColor,
     required this.subtasks,
     required this.date,
+    this.workspace,
+    this.workspaceColor,
   });
 }
