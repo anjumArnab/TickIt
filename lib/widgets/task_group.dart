@@ -33,7 +33,8 @@ class TaskGroup extends StatefulWidget {
 class _TaskGroupState extends State<TaskGroup> {
   late bool _isSelected;
   final GlobalKey _contentKey = GlobalKey();
-  int? _selectedSubtaskIndex; // Track which subtask is selected
+  Set<int> _selectedSubtaskIndices =
+      <int>{}; // Changed to Set for multiple selections
 
   @override
   void initState() {
@@ -85,9 +86,9 @@ class _TaskGroupState extends State<TaskGroup> {
         // Timeline radio button and line
         Column(
           children: [
-            Radio<bool>(
-              value: true,
-              groupValue: _isSelected,
+            Checkbox(
+              shape: const CircleBorder(),
+              value: _isSelected,
               onChanged: (value) {
                 setState(() {
                   _isSelected = value ?? false;
@@ -200,12 +201,16 @@ class _TaskGroupState extends State<TaskGroup> {
                     children: [
                       Transform.scale(
                         scale: 0.7,
-                        child: Radio<int>(
-                          value: index,
-                          groupValue: _selectedSubtaskIndex,
-                          onChanged: (value) {
+                        child: Checkbox(
+                          shape: const CircleBorder(),
+                          value: _selectedSubtaskIndices.contains(index),
+                          onChanged: (bool? value) {
                             setState(() {
-                              _selectedSubtaskIndex = value;
+                              if (value == true) {
+                                _selectedSubtaskIndices.add(index);
+                              } else {
+                                _selectedSubtaskIndices.remove(index);
+                              }
                             });
                           },
                           activeColor: Colors.blue,
