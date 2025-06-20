@@ -1,7 +1,8 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import 'package:tick_it/screens/taskpage.dart';
+import '../screens/drawer.dart';
+import '../screens/taskpage.dart';
 import '../screens/pomodoro.dart';
 import '../screens/workspace.dart';
 import '../model/task.dart';
@@ -156,6 +157,20 @@ class _HomepageState extends State<Homepage>
     }
   }
 
+  // Get app bar title based on selected tab
+  String _getAppBarTitle() {
+    switch (selectedBottomIndex) {
+      case 0:
+        return 'TickIt';
+      case 1:
+        return 'Pomodoro Timer';
+      case 2:
+        return 'Workspace';
+      default:
+        return 'TickIt';
+    }
+  }
+
   // Build the timeline screen (original homepage content)
   Widget _buildTimelineScreen() {
     return GestureDetector(
@@ -209,7 +224,7 @@ class _HomepageState extends State<Homepage>
   void _navToTaskPage(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => AddTaskPage()),
+      MaterialPageRoute(builder: (context) => TaskPage()),
     );
   }
 
@@ -220,8 +235,9 @@ class _HomepageState extends State<Homepage>
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+
         title: Text(
-          'TickIt',
+          _getAppBarTitle(),
           style: TextStyle(
             color: Colors.black,
             fontSize: 28,
@@ -229,13 +245,18 @@ class _HomepageState extends State<Homepage>
           ),
         ),
       ),
+      drawer: AppDrawer(),
       body: _getCurrentScreen(),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.green,
-        shape: const CircleBorder(),
-        onPressed: () => _navToTaskPage(context),
-        child: Icon(Icons.add, color: Colors.white),
-      ),
+      // Only show floating action button on Timeline tab
+      floatingActionButton:
+          selectedBottomIndex == 0
+              ? FloatingActionButton(
+                backgroundColor: Colors.green,
+                shape: const CircleBorder(),
+                onPressed: () => _navToTaskPage(context),
+                child: Icon(Icons.add, color: Colors.white),
+              )
+              : null,
 
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
@@ -243,8 +264,66 @@ class _HomepageState extends State<Homepage>
           // Calendar section that expands from bottom nav - only for timeline
           if (selectedBottomIndex == 0 && _showCalendar) ExpandedCalendar(),
 
-          // Bottom Navigation Bar
-          _buildBottomNavigationBar(),
+          // Bottom Navigation Bar with removed container background
+          Theme(
+            data: Theme.of(context).copyWith(
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              bottomNavigationBarTheme: BottomNavigationBarThemeData(
+                selectedItemColor: Colors.green[800],
+                unselectedItemColor: Colors.grey[600],
+                backgroundColor: Colors.white,
+                type: BottomNavigationBarType.fixed,
+              ),
+            ),
+            child: BottomNavigationBar(
+              currentIndex: selectedBottomIndex,
+              onTap: (index) {
+                setState(() {
+                  // Handle calendar logic only for timeline tab
+                  if (index == 0) {
+                    if (selectedBottomIndex == 0) {
+                      // If already on timeline, toggle calendar
+                      _showCalendar = !_showCalendar;
+                    } else {
+                      // Switching to timeline, don't show calendar initially
+                      _showCalendar = false;
+                    }
+                  } else {
+                    // Hide calendar for other tabs
+                    _showCalendar = false;
+                  }
+
+                  // Update selected index
+                  selectedBottomIndex = index;
+                });
+              },
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.white,
+              selectedItemColor: Colors.green[800],
+              unselectedItemColor: Colors.grey[600],
+              selectedFontSize: 12,
+              unselectedFontSize: 12,
+              elevation: 5,
+              showSelectedLabels: true,
+              showUnselectedLabels: true,
+              enableFeedback: false, // Removes ripple effect
+              items: [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.timeline),
+                  label: 'Timeline',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.timer),
+                  label: 'Pomodoro',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.folder_outlined),
+                  label: 'Workspace',
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -296,11 +375,11 @@ class _HomepageState extends State<Homepage>
                             task.workspaceColor, // Pass workspace color
                       ),
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             );
-          }).toList(),
+          }),
 
           SizedBox(height: 100), // Bottom padding
         ],
@@ -438,101 +517,6 @@ class _HomepageState extends State<Homepage>
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBottomNavigationBar() {
-    return Container(
-      height: 55,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 10,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildBottomNavItem(
-            Icons.timeline,
-            'Timeline',
-            0,
-            selectedBottomIndex == 0,
-          ),
-          _buildBottomNavItem(
-            Icons.view_module,
-            'Pomodoro',
-            1,
-            selectedBottomIndex == 1,
-          ),
-          _buildBottomNavItem(
-            Icons.folder_outlined,
-            'Workspace',
-            2,
-            selectedBottomIndex == 2,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomNavItem(
-    IconData icon,
-    String label,
-    int index,
-    bool isSelected,
-  ) {
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          // Handle calendar logic only for timeline tab
-          if (index == 0) {
-            if (selectedBottomIndex == 0) {
-              // If already on timeline, toggle calendar
-              _showCalendar = !_showCalendar;
-            } else {
-              // Switching to timeline, don't show calendar initially
-              _showCalendar = false;
-            }
-          } else {
-            // Hide calendar for other tabs
-            _showCalendar = false;
-          }
-
-          // Update selected index
-          selectedBottomIndex = index;
-        });
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.blue[100] : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.blue[800] : Colors.grey[600],
-              size: 15,
-            ),
-            SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: isSelected ? Colors.blue[800] : Colors.grey[600],
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
