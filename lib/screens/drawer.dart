@@ -76,63 +76,6 @@ class AppDrawer extends StatelessWidget {
                     // Navigate to home
                   },
                 ),
-                _buildDrawerItem(
-                  icon: Icons.task_outlined,
-                  title: 'All Tasks',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Navigate to all tasks
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.today_outlined,
-                  title: 'Today',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Navigate to today's tasks
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.upcoming_outlined,
-                  title: 'Upcoming',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Navigate to upcoming tasks
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.check_circle_outline,
-                  title: 'Completed',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Navigate to completed tasks
-                  },
-                ),
-                const Divider(height: 1, color: Color(0xFFE5E5E5)),
-                _buildDrawerItem(
-                  icon: Icons.timer_outlined,
-                  title: 'Pomodoro Timer',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Navigate to pomodoro timer
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.timeline_outlined,
-                  title: 'Timeline',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Navigate to timeline
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.folder_outlined,
-                  title: 'Workspaces',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Navigate to workspaces
-                  },
-                ),
                 const Divider(height: 1, color: Color(0xFFE5E5E5)),
                 _buildDrawerItem(
                   icon: Icons.settings_outlined,
