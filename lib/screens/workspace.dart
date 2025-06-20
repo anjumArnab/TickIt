@@ -13,21 +13,9 @@ class Workspace extends StatefulWidget {
 class _WorkspaceState extends State<Workspace> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Workspaces',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: Padding(
+    return Container(
+      color: const Color(0xFFF5F5F5),
+      child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [

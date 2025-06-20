@@ -130,14 +130,9 @@ class _PomodoroTimerState extends State<PomodoroTimer> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: Text('Pomodoro Timer'),
-        backgroundColor: _getTimerColor(),
-        elevation: 0,
-      ),
-      body: Center(
+    return Container(
+      color: Colors.grey[100],
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
