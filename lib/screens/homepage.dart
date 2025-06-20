@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, unused_field
 
 import 'package:flutter/material.dart';
 import '../screens/drawer.dart';
@@ -235,7 +235,6 @@ class _HomepageState extends State<Homepage>
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-
         title: Text(
           _getAppBarTitle(),
           style: TextStyle(
