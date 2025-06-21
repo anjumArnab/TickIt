@@ -177,13 +177,13 @@ class _HomepageState extends State<Homepage>
   String _getAppBarTitle() {
     switch (selectedBottomIndex) {
       case 0:
-        return 'TickIt';
+        return 'Tick It';
       case 1:
         return 'Pomodoro Timer';
       case 2:
         return 'Workspace';
       default:
-        return 'TickIt';
+        return 'Tick It';
     }
   }
 
