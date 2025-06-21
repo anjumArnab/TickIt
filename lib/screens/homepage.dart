@@ -9,6 +9,7 @@ import '../model/task.dart';
 import '../widgets/calendar.dart';
 import '../widgets/date_task_card.dart';
 import '../widgets/task_group.dart';
+import '../services/db_service.dart';
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -24,93 +25,57 @@ class _HomepageState extends State<Homepage>
   DateTime? _selectedDay;
   bool _showCalendar = false;
 
-  // Sample tasks data grouped by date with workspace information
-  final List<Task> _allTasks = [
-    // Today's tasks
-    Task(
-      title: 'Design Homepage',
-      time: '10:00 AM - 12:00 PM',
-      progress: '2/5',
-      flagColor: Colors.orange,
-      subtasks: ['Create wireframe', 'Add images', 'Review layout'],
-      date: DateTime.now(),
-      workspace: 'Work',
-      workspaceColor: Colors.blue,
-    ),
-    Task(
-      title: 'Team Meeting',
-      time: '2:00 PM - 3:00 PM',
-      progress: '1/3',
-      flagColor: Colors.blue,
-      subtasks: ['Prepare agenda', 'Review documents', 'Send invites'],
-      date: DateTime.now(),
-      workspace: 'Work',
-      workspaceColor: Colors.blue,
-    ),
+  // Database service instance
+  final DBService _dbService = DBService.instance;
 
-    // Tomorrow's tasks
-    Task(
-      title: 'Code Review',
-      time: '9:00 AM - 11:00 AM',
-      progress: '0/4',
-      flagColor: Colors.red,
-      subtasks: [
-        'Review PR #123',
-        'Test functionality',
-        'Update documentation',
-        'Merge changes',
-      ],
-      date: DateTime.now().add(Duration(days: 1)),
-      workspace: 'Freelance',
-      workspaceColor: Colors.purple,
-    ),
-    Task(
-      title: 'Client Presentation',
-      time: '3:00 PM - 4:30 PM',
-      progress: '3/6',
-      flagColor: Colors.green,
-      subtasks: [
-        'Prepare slides',
-        'Practice presentation',
-        'Setup demo',
-        'Prepare Q&A',
-        'Send materials',
-        'Schedule follow-up',
-      ],
-      date: DateTime.now().add(Duration(days: 1)),
-      workspace: 'Freelance',
-      workspaceColor: Colors.purple,
-    ),
-
-    // Day after tomorrow
-    Task(
-      title: 'Database Optimization',
-      time: '10:00 AM - 1:00 PM',
-      progress: '1/4',
-      flagColor: Colors.purple,
-      subtasks: [
-        'Analyze queries',
-        'Create indexes',
-        'Test performance',
-        'Document changes',
-      ],
-      date: DateTime.now().add(Duration(days: 2)),
-      workspace: 'Personal',
-      workspaceColor: Colors.green,
-    ),
-  ];
+  // Tasks loaded from database
+  List<Task> _allTasks = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _selectedDay = DateTime.now();
+    _loadTasks();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  // Load tasks from database
+  Future<void> _loadTasks() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final tasks = _dbService.getAllTasks();
+
+      setState(() {
+        _allTasks = tasks;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading tasks: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Refresh tasks after operations
+  void _refreshTasks() {
+    _loadTasks();
   }
 
   // Function to close calendar
@@ -141,6 +106,17 @@ class _HomepageState extends State<Homepage>
     }
 
     return groupedTasks;
+  }
+
+  void _navToTaskPageForEdit(BuildContext context, Task task) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => TaskPage(task: task)),
+    );
+
+    if (result != null) {
+      _refreshTasks();
+    }
   }
 
   // Get the current screen based on selected bottom nav index
@@ -206,26 +182,34 @@ class _HomepageState extends State<Homepage>
 
           // Tab Bar View
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildAllTodosTab(),
-                _buildTodayTab(),
-                _buildUpcomingTab(),
-                _buildCompletedTab(),
-              ],
-            ),
+            child:
+                _isLoading
+                    ? Center(child: CircularProgressIndicator())
+                    : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildAllTodosTab(),
+                        _buildTodayTab(),
+                        _buildUpcomingTab(),
+                        _buildCompletedTab(),
+                      ],
+                    ),
           ),
         ],
       ),
     );
   }
 
-  void _navToTaskPage(BuildContext context) {
-    Navigator.push(
+  void _navToTaskPage(BuildContext context) async {
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => TaskPage()),
     );
+
+    // Refresh tasks if a new task was added
+    if (result != null) {
+      _refreshTasks();
+    }
   }
 
   @override
@@ -243,6 +227,14 @@ class _HomepageState extends State<Homepage>
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          // Add refresh button
+          if (selectedBottomIndex == 0)
+            IconButton(
+              icon: Icon(Icons.refresh, color: Colors.black),
+              onPressed: _refreshTasks,
+            ),
+        ],
       ),
       drawer: AppDrawer(),
       body: _getCurrentScreen(),
@@ -329,6 +321,31 @@ class _HomepageState extends State<Homepage>
   }
 
   Widget _buildAllTodosTab() {
+    if (_allTasks.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.task_alt, size: 64, color: Colors.grey[400]),
+            SizedBox(height: 16),
+            Text(
+              'No tasks yet',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Tap + to create your first task',
+              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+            ),
+          ],
+        ),
+      );
+    }
+
     Map<DateTime, List<Task>> groupedTasks = _groupTasksByDate();
     List<DateTime> sortedDates =
         groupedTasks.keys.toList()..sort((a, b) => a.compareTo(b));
@@ -369,9 +386,9 @@ class _HomepageState extends State<Homepage>
                         progress: task.progress,
                         flagColor: task.flagColor,
                         subtasks: task.subtasks,
-                        workspace: task.workspace, // Pass workspace
-                        workspaceColor:
-                            task.workspaceColor, // Pass workspace color
+                        workspace: task.workspace,
+                        workspaceColor: task.workspaceColor,
+                        onTap: () => _navToTaskPageForEdit(context, task),
                       ),
                     );
                   }),
@@ -387,19 +404,28 @@ class _HomepageState extends State<Homepage>
   }
 
   Widget _buildTodayTab() {
-    // Filter tasks for today only
-    DateTime today = DateTime.now();
-    DateTime todayOnly = DateTime(today.year, today.month, today.day);
+    // Use database service method for today's tasks
+    List<Task> todayTasks = _dbService.getTodayTasks();
 
-    List<Task> todayTasks =
-        _allTasks.where((task) {
-          DateTime taskDate = DateTime(
-            task.date.year,
-            task.date.month,
-            task.date.day,
-          );
-          return taskDate == todayOnly;
-        }).toList();
+    if (todayTasks.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.today, size: 64, color: Colors.grey[400]),
+            SizedBox(height: 16),
+            Text(
+              'No tasks for today',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return SingleChildScrollView(
       child: Column(
@@ -421,6 +447,7 @@ class _HomepageState extends State<Homepage>
                         subtasks: task.subtasks,
                         workspace: task.workspace,
                         workspaceColor: task.workspaceColor,
+                        onTap: () => _navToTaskPageForEdit(context, task),
                       ),
                     );
                   }).toList(),
@@ -434,19 +461,8 @@ class _HomepageState extends State<Homepage>
   }
 
   Widget _buildUpcomingTab() {
-    // Filter tasks for upcoming days (not today)
-    DateTime today = DateTime.now();
-    DateTime todayOnly = DateTime(today.year, today.month, today.day);
-
-    List<Task> upcomingTasks =
-        _allTasks.where((task) {
-          DateTime taskDate = DateTime(
-            task.date.year,
-            task.date.month,
-            task.date.day,
-          );
-          return taskDate.isAfter(todayOnly);
-        }).toList();
+    // Use database service method for upcoming tasks
+    List<Task> upcomingTasks = _dbService.getUpcomingTasks();
 
     if (upcomingTasks.isEmpty) {
       return Center(
@@ -488,6 +504,7 @@ class _HomepageState extends State<Homepage>
                         subtasks: task.subtasks,
                         workspace: task.workspace,
                         workspaceColor: task.workspaceColor,
+                        onTap: () => _navToTaskPage(context),
                       ),
                     );
                   }).toList(),
@@ -501,20 +518,57 @@ class _HomepageState extends State<Homepage>
   }
 
   Widget _buildCompletedTab() {
-    return Center(
+    // Use database service method for completed tasks
+    List<Task> completedTasks = _dbService.getCompletedTasks();
+
+    if (completedTasks.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline, size: 64, color: Colors.grey[400]),
+            SizedBox(height: 16),
+            Text(
+              'No completed tasks',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.check_circle_outline, size: 64, color: Colors.grey[400]),
-          SizedBox(height: 16),
-          Text(
-            'No completed tasks',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
+          SizedBox(height: 20),
+
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children:
+                  completedTasks.map((task) {
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: TaskGroup(
+                        title: task.title,
+                        time: task.time,
+                        progress: task.progress,
+                        flagColor: task.flagColor,
+                        subtasks: task.subtasks,
+                        workspace: task.workspace,
+                        workspaceColor: task.workspaceColor,
+                        onTap: () => _navToTaskPage(context),
+                      ),
+                    );
+                  }).toList(),
             ),
           ),
+
+          SizedBox(height: 100),
         ],
       ),
     );
