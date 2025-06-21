@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 
 part 'task.g.dart';
@@ -12,13 +11,13 @@ class Task extends HiveObject {
   String time;
 
   @HiveField(2)
-  String progress;
+  bool isMainTaskCompleted;
 
   @HiveField(3)
-  int flagColorValue; // Store color as int value
+  int flagColorValue;
 
   @HiveField(4)
-  List<String> subtasks;
+  List<Subtask> subtasks;
 
   @HiveField(5)
   DateTime date;
@@ -27,26 +26,39 @@ class Task extends HiveObject {
   String? workspace;
 
   @HiveField(7)
-  int? workspaceColorValue; // Store color as int value
+  int? workspaceColorValue;
 
+  // Constructor
   Task({
     required this.title,
     required this.time,
-    required this.progress,
-    required Color flagColor,
+    this.isMainTaskCompleted = false,
+    required this.flagColorValue,
     required this.subtasks,
     required this.date,
     this.workspace,
-    Color? workspaceColor,
-  }) : flagColorValue = flagColor.value,
-       workspaceColorValue = workspaceColor?.value;
+    this.workspaceColorValue,
+  });
 
-  // Getters to convert int values back to Colors
-  Color get flagColor => Color(flagColorValue);
-  Color? get workspaceColor =>
-      workspaceColorValue != null ? Color(workspaceColorValue!) : null;
+  // Automatically calculated progress
+  String get progress {
+    if (subtasks.isEmpty) return "0/0";
+    int completed = subtasks.where((s) => s.isCompleted).length;
+    return "$completed/${subtasks.length}";
+  }
 
-  // Setters to update colors
-  set flagColor(Color color) => flagColorValue = color.value;
-  set workspaceColor(Color? color) => workspaceColorValue = color?.value;
+  // Check if all subtasks are done
+  bool get allSubtasksCompleted =>
+      subtasks.isNotEmpty && subtasks.every((s) => s.isCompleted);
+}
+
+@HiveType(typeId: 1)
+class Subtask {
+  @HiveField(0)
+  String title;
+
+  @HiveField(1)
+  bool isCompleted;
+
+  Subtask({required this.title, this.isCompleted = false});
 }
