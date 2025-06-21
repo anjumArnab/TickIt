@@ -19,12 +19,17 @@ class DBService {
       Hive.registerAdapter(TaskAdapter());
     }
 
+    // Register the Subtask adapter if not already registered
+    if (!Hive.isAdapterRegistered(1)) {
+      Hive.registerAdapter(SubtaskAdapter());
+    }
+
     // Open the tasks box
     _box = await Hive.openBox<Task>(_boxName);
   }
 
   /// Get the tasks box, throw error if not initialized
-  Box<Task> get _tasksBox {
+  Box<Task> get tasksBox {
     if (_box == null) {
       throw Exception(
         'DBService not initialized. Call DBService.init() first.',
@@ -38,7 +43,7 @@ class DBService {
   /// Create - Add a new task
   Future<void> addTask(Task task) async {
     try {
-      await _tasksBox.add(task);
+      await tasksBox.add(task);
     } catch (e) {
       throw Exception('Failed to add task: $e');
     }
@@ -47,7 +52,7 @@ class DBService {
   /// Read - Get all tasks
   List<Task> getAllTasks() {
     try {
-      return _tasksBox.values.toList();
+      return tasksBox.values.toList();
     } catch (e) {
       throw Exception('Failed to get all tasks: $e');
     }
@@ -56,7 +61,7 @@ class DBService {
   /// Read - Get task by key
   Task? getTask(int key) {
     try {
-      return _tasksBox.get(key);
+      return tasksBox.get(key);
     } catch (e) {
       throw Exception('Failed to get task: $e');
     }
@@ -66,7 +71,7 @@ class DBService {
   List<Task> getTasksByDate(DateTime date) {
     try {
       final dateOnly = DateTime(date.year, date.month, date.day);
-      return _tasksBox.values.where((task) {
+      return tasksBox.values.where((task) {
         final taskDate = DateTime(
           task.date.year,
           task.date.month,
@@ -90,7 +95,7 @@ class DBService {
       final today = DateTime.now();
       final todayOnly = DateTime(today.year, today.month, today.day);
 
-      return _tasksBox.values.where((task) {
+      return tasksBox.values.where((task) {
         final taskDate = DateTime(
           task.date.year,
           task.date.month,
@@ -106,7 +111,7 @@ class DBService {
   /// Read - Get tasks by workspace
   List<Task> getTasksByWorkspace(String workspace) {
     try {
-      return _tasksBox.values
+      return tasksBox.values
           .where(
             (task) => task.workspace?.toLowerCase() == workspace.toLowerCase(),
           )
@@ -116,20 +121,34 @@ class DBService {
     }
   }
 
-  /// Read - Get completed tasks (assuming progress like "5/5" means completed)
+  /// Read - Get completed tasks (main task completed OR all subtasks completed)
   List<Task> getCompletedTasks() {
     try {
-      return _tasksBox.values.where((task) {
-        final progressParts = task.progress.split('/');
-        if (progressParts.length == 2) {
-          final completed = int.tryParse(progressParts[0]) ?? 0;
-          final total = int.tryParse(progressParts[1]) ?? 1;
-          return completed >= total;
-        }
-        return false;
+      return tasksBox.values.where((task) {
+        return task.isMainTaskCompleted || task.allSubtasksCompleted;
       }).toList();
     } catch (e) {
       throw Exception('Failed to get completed tasks: $e');
+    }
+  }
+
+  /// Read - Get tasks with completed main task only
+  List<Task> getMainTaskCompletedTasks() {
+    try {
+      return tasksBox.values.where((task) => task.isMainTaskCompleted).toList();
+    } catch (e) {
+      throw Exception('Failed to get main task completed tasks: $e');
+    }
+  }
+
+  /// Read - Get tasks with all subtasks completed
+  List<Task> getAllSubtasksCompletedTasks() {
+    try {
+      return tasksBox.values
+          .where((task) => task.allSubtasksCompleted)
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get all subtasks completed tasks: $e');
     }
   }
 
@@ -138,7 +157,7 @@ class DBService {
     try {
       final Map<DateTime, List<Task>> groupedTasks = {};
 
-      for (Task task in _tasksBox.values) {
+      for (Task task in tasksBox.values) {
         final dateOnly = DateTime(
           task.date.year,
           task.date.month,
@@ -161,45 +180,50 @@ class DBService {
   /// Update - Update an existing task
   Future<void> updateTask(int key, Task updatedTask) async {
     try {
-      await _tasksBox.put(key, updatedTask);
+      await tasksBox.put(key, updatedTask);
     } catch (e) {
       throw Exception('Failed to update task: $e');
     }
   }
 
-  /// Update - Update task progress
-  Future<void> updateTaskProgress(int key, String newProgress) async {
+  /// Update - Toggle main task completion
+  Future<void> toggleMainTaskCompletion(int key) async {
     try {
-      final task = _tasksBox.get(key);
+      final task = tasksBox.get(key);
       if (task != null) {
-        task.progress = newProgress;
+        task.isMainTaskCompleted = !task.isMainTaskCompleted;
         await task.save();
       } else {
         throw Exception('Task not found');
       }
     } catch (e) {
-      throw Exception('Failed to update task progress: $e');
+      throw Exception('Failed to toggle main task completion: $e');
+    }
+  }
+
+  /// Update - Set main task completion status
+  Future<void> setMainTaskCompletion(int key, bool isCompleted) async {
+    try {
+      final task = tasksBox.get(key);
+      if (task != null) {
+        task.isMainTaskCompleted = isCompleted;
+        await task.save();
+      } else {
+        throw Exception('Task not found');
+      }
+    } catch (e) {
+      throw Exception('Failed to set main task completion: $e');
     }
   }
 
   /// Update - Toggle subtask completion
   Future<void> toggleSubtaskCompletion(int taskKey, int subtaskIndex) async {
     try {
-      final task = _tasksBox.get(taskKey);
+      final task = tasksBox.get(taskKey);
       if (task != null && subtaskIndex < task.subtasks.length) {
-        // This is a simple implementation - you might want to track completed subtasks differently
-        final progressParts = task.progress.split('/');
-        if (progressParts.length == 2) {
-          int completed = int.tryParse(progressParts[0]) ?? 0;
-          final total = int.tryParse(progressParts[1]) ?? task.subtasks.length;
-
-          // Toggle completion (this is simplified - you'd need better tracking)
-          completed = completed < total ? completed + 1 : completed - 1;
-          completed = completed.clamp(0, total);
-
-          task.progress = '$completed/$total';
-          await task.save();
-        }
+        task.subtasks[subtaskIndex].isCompleted =
+            !task.subtasks[subtaskIndex].isCompleted;
+        await task.save();
       } else {
         throw Exception('Task or subtask not found');
       }
@@ -208,10 +232,78 @@ class DBService {
     }
   }
 
+  /// Update - Set subtask completion status
+  Future<void> setSubtaskCompletion(
+    int taskKey,
+    int subtaskIndex,
+    bool isCompleted,
+  ) async {
+    try {
+      final task = tasksBox.get(taskKey);
+      if (task != null && subtaskIndex < task.subtasks.length) {
+        task.subtasks[subtaskIndex].isCompleted = isCompleted;
+        await task.save();
+      } else {
+        throw Exception('Task or subtask not found');
+      }
+    } catch (e) {
+      throw Exception('Failed to set subtask completion: $e');
+    }
+  }
+
+  /// Update - Add subtask to existing task
+  Future<void> addSubtask(int taskKey, Subtask subtask) async {
+    try {
+      final task = tasksBox.get(taskKey);
+      if (task != null) {
+        task.subtasks.add(subtask);
+        await task.save();
+      } else {
+        throw Exception('Task not found');
+      }
+    } catch (e) {
+      throw Exception('Failed to add subtask: $e');
+    }
+  }
+
+  /// Update - Remove subtask from existing task
+  Future<void> removeSubtask(int taskKey, int subtaskIndex) async {
+    try {
+      final task = tasksBox.get(taskKey);
+      if (task != null && subtaskIndex < task.subtasks.length) {
+        task.subtasks.removeAt(subtaskIndex);
+        await task.save();
+      } else {
+        throw Exception('Task or subtask not found');
+      }
+    } catch (e) {
+      throw Exception('Failed to remove subtask: $e');
+    }
+  }
+
+  /// Update - Update subtask title
+  Future<void> updateSubtaskTitle(
+    int taskKey,
+    int subtaskIndex,
+    String newTitle,
+  ) async {
+    try {
+      final task = tasksBox.get(taskKey);
+      if (task != null && subtaskIndex < task.subtasks.length) {
+        task.subtasks[subtaskIndex].title = newTitle;
+        await task.save();
+      } else {
+        throw Exception('Task or subtask not found');
+      }
+    } catch (e) {
+      throw Exception('Failed to update subtask title: $e');
+    }
+  }
+
   /// Delete - Delete a task by key
   Future<void> deleteTask(int key) async {
     try {
-      await _tasksBox.delete(key);
+      await tasksBox.delete(key);
     } catch (e) {
       throw Exception('Failed to delete task: $e');
     }
@@ -220,7 +312,7 @@ class DBService {
   /// Delete - Delete multiple tasks
   Future<void> deleteTasks(List<int> keys) async {
     try {
-      await _tasksBox.deleteAll(keys);
+      await tasksBox.deleteAll(keys);
     } catch (e) {
       throw Exception('Failed to delete tasks: $e');
     }
@@ -229,7 +321,7 @@ class DBService {
   /// Delete - Clear all tasks
   Future<void> clearAllTasks() async {
     try {
-      await _tasksBox.clear();
+      await tasksBox.clear();
     } catch (e) {
       throw Exception('Failed to clear all tasks: $e');
     }
@@ -237,7 +329,7 @@ class DBService {
 
   /// Utility - Get task count
   int getTaskCount() {
-    return _tasksBox.length;
+    return tasksBox.length;
   }
 
   /// Utility - Get task count by date
@@ -245,11 +337,23 @@ class DBService {
     return getTasksByDate(date).length;
   }
 
+  /// Utility - Get completed task count
+  int getCompletedTaskCount() {
+    return getCompletedTasks().length;
+  }
+
+  /// Utility - Get completed task count by date
+  int getCompletedTaskCountByDate(DateTime date) {
+    return getTasksByDate(date)
+        .where((task) => task.isMainTaskCompleted || task.allSubtasksCompleted)
+        .length;
+  }
+
   /// Utility - Get all unique workspaces
   List<String> getAllWorkspaces() {
     try {
       final workspaces = <String>{};
-      for (final task in _tasksBox.values) {
+      for (final task in tasksBox.values) {
         if (task.workspace != null && task.workspace!.isNotEmpty) {
           workspaces.add(task.workspace!);
         }
@@ -265,7 +369,7 @@ class DBService {
     try {
       if (query.isEmpty) return getAllTasks();
 
-      return _tasksBox.values
+      return tasksBox.values
           .where(
             (task) => task.title.toLowerCase().contains(query.toLowerCase()),
           )
@@ -275,10 +379,32 @@ class DBService {
     }
   }
 
+  /// Utility - Search tasks by title and subtask titles
+  List<Task> searchTasksAndSubtasks(String query) {
+    try {
+      if (query.isEmpty) return getAllTasks();
+
+      return tasksBox.values.where((task) {
+        // Search in main task title
+        if (task.title.toLowerCase().contains(query.toLowerCase())) {
+          return true;
+        }
+
+        // Search in subtask titles
+        return task.subtasks.any(
+          (subtask) =>
+              subtask.title.toLowerCase().contains(query.toLowerCase()),
+        );
+      }).toList();
+    } catch (e) {
+      throw Exception('Failed to search tasks and subtasks: $e');
+    }
+  }
+
   /// Utility - Get tasks within date range
   List<Task> getTasksInDateRange(DateTime startDate, DateTime endDate) {
     try {
-      return _tasksBox.values.where((task) {
+      return tasksBox.values.where((task) {
         final taskDate = DateTime(
           task.date.year,
           task.date.month,
@@ -296,9 +422,20 @@ class DBService {
     }
   }
 
+  /// Utility - Get tasks by workspace color
+  List<Task> getTasksByWorkspaceColor(int colorValue) {
+    try {
+      return tasksBox.values
+          .where((task) => task.workspaceColorValue == colorValue)
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get tasks by workspace color: $e');
+    }
+  }
+
   /// Listen to box changes
   Stream<BoxEvent> watchTasks() {
-    return _tasksBox.watch();
+    return tasksBox.watch();
   }
 
   /// Close the database
@@ -310,7 +447,7 @@ class DBService {
   /// Compact the database (optional - for performance)
   Future<void> compact() async {
     try {
-      await _tasksBox.compact();
+      await tasksBox.compact();
     } catch (e) {
       throw Exception('Failed to compact database: $e');
     }
