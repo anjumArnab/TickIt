@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/db_service.dart';
 import '../screens/homepage.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await DBService.init();
+    debugPrint('Database initialized successfully');
+  } catch (e) {
+    debugPrint('Error initializing database: $e');
+  }
+
   runApp(TickIt());
 }
 
