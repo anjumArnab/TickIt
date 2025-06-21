@@ -2,9 +2,11 @@
 
 import 'package:flutter/material.dart';
 import '../model/task.dart';
+import '../services/db_service.dart';
 
 class TaskPage extends StatefulWidget {
-  const TaskPage({super.key});
+  final Task? task; // Add this to support editing existing tasks
+  const TaskPage({super.key, this.task});
 
   @override
   State<TaskPage> createState() => _TaskPageState();
@@ -21,6 +23,11 @@ class _TaskPageState extends State<TaskPage> {
   String? _selectedWorkspace;
   Color? _selectedWorkspaceColor;
   List<String> _subtasks = [];
+
+  // Database service instance
+  final DBService _dbService = DBService.instance;
+  bool _isEditing = false;
+  int? _taskKey; // For tracking the task key when editing
 
   // Sample workspaces
   final Map<String, Color> _workspaces = {
@@ -41,6 +48,49 @@ class _TaskPageState extends State<TaskPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // If editing an existing task, populate the fields
+    if (widget.task != null) {
+      _populateFieldsForEditing();
+    }
+  }
+
+  void _populateFieldsForEditing() {
+    final task = widget.task!;
+    _isEditing = true;
+
+    _titleController.text = task.title;
+    _selectedDate = task.date;
+
+    // Parse time from string
+    try {
+      final timeParts = task.time.split(':');
+      if (timeParts.length >= 2) {
+        int hour = int.parse(timeParts[0]);
+        int minute = int.parse(timeParts[1].split(' ')[0]);
+
+        // Handle AM/PM
+        if (task.time.toLowerCase().contains('pm') && hour != 12) {
+          hour += 12;
+        } else if (task.time.toLowerCase().contains('am') && hour == 12) {
+          hour = 0;
+        }
+
+        _selectedTime = TimeOfDay(hour: hour, minute: minute);
+      }
+    } catch (e) {
+      // If parsing fails, use current time
+      _selectedTime = TimeOfDay.now();
+    }
+
+    _selectedFlagColor = task.flagColor;
+    _selectedWorkspace = task.workspace;
+    _selectedWorkspaceColor = task.workspaceColor;
+    _subtasks = List.from(task.subtasks);
+  }
+
+  @override
   void dispose() {
     _titleController.dispose();
     _subtaskController.dispose();
@@ -58,15 +108,28 @@ class _TaskPageState extends State<TaskPage> {
           icon: const Icon(Icons.close, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Add New Task',
-          style: TextStyle(
+        title: Text(
+          _isEditing ? 'Edit Task' : 'Add New Task',
+          style: const TextStyle(
             color: Colors.black,
             fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
         ),
         actions: [
+          if (_isEditing)
+            TextButton(
+              onPressed: _deleteTask,
+              child: const Text(
+                'Delete',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          const SizedBox(width: 15),
           TextButton(
             onPressed: _saveTask,
             child: const Text(
@@ -488,30 +551,169 @@ class _TaskPageState extends State<TaskPage> {
     });
   }
 
-  void _saveTask() {
+  Future<void> _saveTask() async {
     if (_formKey.currentState!.validate()) {
-      // Create the task
-      final task = Task(
-        title: _titleController.text,
-        time: _selectedTime.format(context),
-        progress: '0/${_subtasks.length}', // Initial progress
-        flagColor: _selectedFlagColor,
-        subtasks: _subtasks,
-        date: _selectedDate,
-        workspace: _selectedWorkspace,
-        workspaceColor: _selectedWorkspaceColor,
-      );
+      try {
+        // Show loading indicator
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder:
+              (context) => const Center(child: CircularProgressIndicator()),
+        );
 
-      // Return the task to the previous screen
-      Navigator.pop(context, task);
+        // Create the task
+        final task = Task(
+          title: _titleController.text.trim(),
+          time: _selectedTime.format(context),
+          progress: '0/${_subtasks.length}', // Initial progress
+          flagColor: _selectedFlagColor,
+          subtasks: _subtasks,
+          date: _selectedDate,
+          workspace: _selectedWorkspace,
+          workspaceColor: _selectedWorkspaceColor,
+        );
 
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Task created successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+        if (_isEditing && _taskKey != null) {
+          // Update existing task
+          await _dbService.updateTask(_taskKey!, task);
+        } else {
+          // Add new task
+          await _dbService.addTask(task);
+        }
+
+        // Hide loading indicator
+        if (mounted) Navigator.of(context).pop();
+
+        // Return success result to homepage
+        if (mounted) {
+          Navigator.pop(context, true); // Return true to indicate success
+        }
+
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                _isEditing
+                    ? 'Task updated successfully!'
+                    : 'Task created successfully!',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        // Hide loading indicator
+        if (mounted) Navigator.of(context).pop();
+
+        // Show error message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error saving task: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        print('Error saving task: $e');
+      }
     }
+  }
+
+  Future<void> _deleteTask() async {
+    if (!_isEditing || _taskKey == null) {
+      // Clear all fields if not editing
+      _clearFields();
+      return;
+    }
+
+    // Show confirmation dialog for deletion
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Delete Task'),
+            content: const Text('Are you sure you want to delete this task?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed == true) {
+      try {
+        // Show loading indicator
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder:
+              (context) => const Center(child: CircularProgressIndicator()),
+        );
+
+        // Delete the task
+        await _dbService.deleteTask(_taskKey!);
+
+        // Hide loading indicator
+        if (mounted) Navigator.of(context).pop();
+
+        // Return to homepage with success
+        if (mounted) {
+          Navigator.pop(context, true);
+        }
+
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Task deleted successfully!'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        // Hide loading indicator
+        if (mounted) Navigator.of(context).pop();
+
+        // Show error message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting task: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        print('Error deleting task: $e');
+      }
+    }
+  }
+
+  void _clearFields() {
+    _titleController.clear();
+    _subtaskController.clear();
+    setState(() {
+      _selectedDate = DateTime.now();
+      _selectedTime = TimeOfDay.now();
+      _selectedFlagColor = Colors.red;
+      _selectedWorkspace = null;
+      _selectedWorkspaceColor = null;
+      _subtasks.clear();
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Task cleared!'),
+        backgroundColor: Colors.orange,
+      ),
+    );
   }
 }
