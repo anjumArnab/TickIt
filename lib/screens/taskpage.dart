@@ -5,8 +5,9 @@ import '../model/task.dart';
 import '../services/db_service.dart';
 
 class TaskPage extends StatefulWidget {
-  final Task? task; // Add this to support editing existing tasks
-  const TaskPage({super.key, this.task});
+  final Task? task;
+  final int? taskKey; // Add this to support editing with key
+  const TaskPage({super.key, this.task, this.taskKey});
 
   @override
   State<TaskPage> createState() => _TaskPageState();
@@ -22,12 +23,12 @@ class _TaskPageState extends State<TaskPage> {
   Color _selectedFlagColor = Colors.red;
   String? _selectedWorkspace;
   Color? _selectedWorkspaceColor;
-  List<String> _subtasks = [];
+  List<Subtask> _subtasks = []; // Changed to List<Subtask>
 
   // Database service instance
   final DBService _dbService = DBService.instance;
   bool _isEditing = false;
-  int? _taskKey; // For tracking the task key when editing
+  int? _taskKey;
 
   // Sample workspaces
   final Map<String, Color> _workspaces = {
@@ -51,7 +52,7 @@ class _TaskPageState extends State<TaskPage> {
   void initState() {
     super.initState();
     // If editing an existing task, populate the fields
-    if (widget.task != null) {
+    if (widget.task != null && widget.taskKey != null) {
       _populateFieldsForEditing();
     }
   }
@@ -59,6 +60,7 @@ class _TaskPageState extends State<TaskPage> {
   void _populateFieldsForEditing() {
     final task = widget.task!;
     _isEditing = true;
+    _taskKey = widget.taskKey;
 
     _titleController.text = task.title;
     _selectedDate = task.date;
@@ -84,9 +86,16 @@ class _TaskPageState extends State<TaskPage> {
       _selectedTime = TimeOfDay.now();
     }
 
-    _selectedFlagColor = task.flagColor;
+    // Convert color value to Color
+    _selectedFlagColor = Color(task.flagColorValue);
     _selectedWorkspace = task.workspace;
-    _selectedWorkspaceColor = task.workspaceColor;
+
+    // Convert workspace color value to Color if available
+    if (task.workspaceColorValue != null) {
+      _selectedWorkspaceColor = Color(task.workspaceColorValue!);
+    }
+
+    // Copy subtasks
     _subtasks = List.from(task.subtasks);
   }
 
@@ -133,7 +142,7 @@ class _TaskPageState extends State<TaskPage> {
           TextButton(
             onPressed: _saveTask,
             child: const Text(
-              'Save',
+              'Done',
               style: TextStyle(
                 color: Color(0xFF4A90E2),
                 fontSize: 16,
@@ -431,13 +440,17 @@ class _TaskPageState extends State<TaskPage> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.drag_indicator,
-                              color: Colors.grey,
-                              size: 16,
+                            Expanded(
+                              child: Text(
+                                subtask.title,
+                                style: TextStyle(
+                                  decoration:
+                                      subtask.isCompleted
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                ),
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(subtask)),
                             IconButton(
                               onPressed: () => _removeSubtask(index),
                               icon: const Icon(
@@ -536,10 +549,10 @@ class _TaskPageState extends State<TaskPage> {
     }
   }
 
-  void _addSubtask(String subtask) {
-    if (subtask.trim().isNotEmpty) {
+  void _addSubtask(String subtaskTitle) {
+    if (subtaskTitle.trim().isNotEmpty) {
       setState(() {
-        _subtasks.add(subtask.trim());
+        _subtasks.add(Subtask(title: subtaskTitle.trim()));
         _subtaskController.clear();
       });
     }
@@ -562,16 +575,16 @@ class _TaskPageState extends State<TaskPage> {
               (context) => const Center(child: CircularProgressIndicator()),
         );
 
-        // Create the task
+        // Create the task with proper constructor parameters
         final task = Task(
           title: _titleController.text.trim(),
           time: _selectedTime.format(context),
-          progress: '0/${_subtasks.length}', // Initial progress
-          flagColor: _selectedFlagColor,
+          flagColorValue: _selectedFlagColor.value, // Convert Color to int
           subtasks: _subtasks,
           date: _selectedDate,
           workspace: _selectedWorkspace,
-          workspaceColor: _selectedWorkspaceColor,
+          workspaceColorValue:
+              _selectedWorkspaceColor?.value, // Convert Color to int
         );
 
         if (_isEditing && _taskKey != null) {

@@ -64,12 +64,14 @@ class _HomepageState extends State<Homepage>
         _isLoading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading tasks: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading tasks: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -108,15 +110,53 @@ class _HomepageState extends State<Homepage>
     return groupedTasks;
   }
 
+  // Navigate to task page for editing with proper task key
   void _navToTaskPageForEdit(BuildContext context, Task task) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => TaskPage(task: task)),
-    );
+    // Find the task key from the database
+    int? taskKey;
 
-    if (result != null) {
-      _refreshTasks();
+    // Get all tasks from the box with their keys
+    final box = _dbService.tasksBox;
+    for (var key in box.keys) {
+      final boxTask = box.get(key);
+      if (boxTask != null &&
+          boxTask.title == task.title &&
+          boxTask.date == task.date &&
+          boxTask.time == task.time) {
+        taskKey = key as int;
+        break;
+      }
     }
+
+    if (taskKey != null) {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => TaskPage(
+                task: task,
+                taskKey: taskKey, // Pass the task key
+              ),
+        ),
+      );
+
+      if (result != null) {
+        _refreshTasks();
+      }
+    } else {
+      // Show error if task key not found
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error: Task not found for editing'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Convert color value to Color object
+  Color _getColorFromValue(int colorValue) {
+    return Color(colorValue);
   }
 
   // Get the current screen based on selected bottom nav index
@@ -384,10 +424,13 @@ class _HomepageState extends State<Homepage>
                         title: task.title,
                         time: task.time,
                         progress: task.progress,
-                        flagColor: task.flagColor,
-                        subtasks: task.subtasks,
+                        flagColor: _getColorFromValue(task.flagColorValue),
+                        subtasks: task.subtasks.map((s) => s.title).toList(),
                         workspace: task.workspace,
-                        workspaceColor: task.workspaceColor,
+                        workspaceColor:
+                            task.workspaceColorValue != null
+                                ? _getColorFromValue(task.workspaceColorValue!)
+                                : null,
                         onTap: () => _navToTaskPageForEdit(context, task),
                       ),
                     );
@@ -443,10 +486,13 @@ class _HomepageState extends State<Homepage>
                         title: task.title,
                         time: task.time,
                         progress: task.progress,
-                        flagColor: task.flagColor,
-                        subtasks: task.subtasks,
+                        flagColor: _getColorFromValue(task.flagColorValue),
+                        subtasks: task.subtasks.map((s) => s.title).toList(),
                         workspace: task.workspace,
-                        workspaceColor: task.workspaceColor,
+                        workspaceColor:
+                            task.workspaceColorValue != null
+                                ? _getColorFromValue(task.workspaceColorValue!)
+                                : null,
                         onTap: () => _navToTaskPageForEdit(context, task),
                       ),
                     );
@@ -500,11 +546,14 @@ class _HomepageState extends State<Homepage>
                         title: task.title,
                         time: task.time,
                         progress: task.progress,
-                        flagColor: task.flagColor,
-                        subtasks: task.subtasks,
+                        flagColor: _getColorFromValue(task.flagColorValue),
+                        subtasks: task.subtasks.map((s) => s.title).toList(),
                         workspace: task.workspace,
-                        workspaceColor: task.workspaceColor,
-                        onTap: () => _navToTaskPage(context),
+                        workspaceColor:
+                            task.workspaceColorValue != null
+                                ? _getColorFromValue(task.workspaceColorValue!)
+                                : null,
+                        onTap: () => _navToTaskPageForEdit(context, task),
                       ),
                     );
                   }).toList(),
@@ -557,11 +606,14 @@ class _HomepageState extends State<Homepage>
                         title: task.title,
                         time: task.time,
                         progress: task.progress,
-                        flagColor: task.flagColor,
-                        subtasks: task.subtasks,
+                        flagColor: _getColorFromValue(task.flagColorValue),
+                        subtasks: task.subtasks.map((s) => s.title).toList(),
                         workspace: task.workspace,
-                        workspaceColor: task.workspaceColor,
-                        onTap: () => _navToTaskPage(context),
+                        workspaceColor:
+                            task.workspaceColorValue != null
+                                ? _getColorFromValue(task.workspaceColorValue!)
+                                : null,
+                        onTap: () => _navToTaskPageForEdit(context, task),
                       ),
                     );
                   }).toList(),
