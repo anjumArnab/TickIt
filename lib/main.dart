@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/db_service_pomodoro.dart';
 import '../services/db_service.dart';
 import '../screens/homepage.dart';
 
@@ -8,6 +9,7 @@ void main() async {
 
   try {
     await DBService.init();
+    await DBServicePomodoro.initHive();
     debugPrint('Database initialized successfully');
   } catch (e) {
     debugPrint('Error initializing database: $e');
