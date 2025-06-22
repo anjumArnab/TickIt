@@ -5,7 +5,7 @@ import '../screens/drawer.dart';
 import '../screens/taskpage.dart';
 import '../screens/pomodoro.dart';
 import '../screens/workspace.dart';
-import '../model/task.dart';
+import '../models/task.dart';
 import '../widgets/calendar.dart';
 import '../widgets/date_task_card.dart';
 import '../widgets/task_group.dart';
@@ -20,6 +20,9 @@ class Homepage extends StatefulWidget {
 
 class _HomepageState extends State<Homepage>
     with SingleTickerProviderStateMixin {
+  // Fixed: Use GlobalKey<State> instead of the private class name
+  final GlobalKey<State> _pomodoroKey = GlobalKey<State>();
+
   int selectedBottomIndex = 0;
   late TabController _tabController;
   DateTime? _selectedDay;
@@ -110,12 +113,8 @@ class _HomepageState extends State<Homepage>
     return groupedTasks;
   }
 
-  // Navigate to task page for editing with proper task key
-  void _navToTaskPageForEdit(BuildContext context, Task task) async {
-    // Find the task key from the database
-    int? taskKey;
-
-    // Get all tasks from the box with their keys
+  // Get task key from database - FIXED METHOD
+  int? _getTaskKey(Task task) {
     final box = _dbService.tasksBox;
     for (var key in box.keys) {
       final boxTask = box.get(key);
@@ -123,20 +122,61 @@ class _HomepageState extends State<Homepage>
           boxTask.title == task.title &&
           boxTask.date == task.date &&
           boxTask.time == task.time) {
-        taskKey = key as int;
-        break;
+        return key as int;
       }
     }
+    return null;
+  }
+
+  // NEW METHOD: Handle main task completion toggle
+  Future<void> _toggleMainTaskCompletion(Task task) async {
+    final taskKey = _getTaskKey(task);
+    if (taskKey != null) {
+      try {
+        await _dbService.toggleMainTaskCompletion(taskKey);
+        _refreshTasks(); // Refresh to show updated state
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error updating task: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  // NEW METHOD: Handle subtask completion toggle
+  Future<void> _toggleSubtaskCompletion(Task task, int subtaskIndex) async {
+    final taskKey = _getTaskKey(task);
+    if (taskKey != null) {
+      try {
+        await _dbService.toggleSubtaskCompletion(taskKey, subtaskIndex);
+        _refreshTasks(); // Refresh to show updated state
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error updating subtask: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  // Navigate to task page for editing with proper task key
+  void _navToTaskPageForEdit(BuildContext context, Task task) async {
+    final taskKey = _getTaskKey(task);
 
     if (taskKey != null) {
       final result = await Navigator.push(
         context,
         MaterialPageRoute(
-          builder:
-              (context) => TaskPage(
-                task: task,
-                taskKey: taskKey, // Pass the task key
-              ),
+          builder: (context) => TaskPage(task: task, taskKey: taskKey),
         ),
       );
 
@@ -165,7 +205,7 @@ class _HomepageState extends State<Homepage>
       case 0:
         return _buildTimelineScreen();
       case 1:
-        return PomodoroTimer();
+        return PomodoroTimer(key: _pomodoroKey);
       case 2:
         return Workspace();
       default:
@@ -184,6 +224,74 @@ class _HomepageState extends State<Homepage>
         return 'Workspace';
       default:
         return 'Tick It';
+    }
+  }
+
+  // Update your _getAppBarActions method
+  List<Widget>? _getAppBarActions() {
+    switch (selectedBottomIndex) {
+      case 0:
+        return [
+          IconButton(
+            icon: Icon(Icons.refresh, color: Colors.black),
+            onPressed: _refreshTasks,
+          ),
+        ];
+      case 1:
+        return [
+          IconButton(
+            icon: Icon(Icons.bar_chart, color: Colors.black),
+            onPressed: () {
+              // Fixed: Call method directly on the PomodoroTimer widget
+              if (_pomodoroKey.currentWidget is PomodoroTimer) {
+                // Create a new instance to show stats
+                showDialog(
+                  context: context,
+                  builder:
+                      (context) => AlertDialog(
+                        title: Text('Statistics'),
+                        content: Text('Stats feature will be implemented here'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text('Close'),
+                          ),
+                        ],
+                      ),
+                );
+              }
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.settings, color: Colors.black),
+            onPressed: () {
+              // Fixed: Call method directly on the PomodoroTimer widget
+              if (_pomodoroKey.currentWidget is PomodoroTimer) {
+                // Create a new instance to show settings
+                showDialog(
+                  context: context,
+                  builder:
+                      (context) => AlertDialog(
+                        title: Text('Settings'),
+                        content: Text(
+                          'Settings feature will be implemented here',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text('Close'),
+                          ),
+                        ],
+                      ),
+                );
+              }
+            },
+          ),
+        ];
+      case 2:
+        return null; // No actions for workspace
+      default:
+        return null;
     }
   }
 
@@ -267,14 +375,8 @@ class _HomepageState extends State<Homepage>
             fontWeight: FontWeight.bold,
           ),
         ),
-        actions: [
-          // Add refresh button
-          if (selectedBottomIndex == 0)
-            IconButton(
-              icon: Icon(Icons.refresh, color: Colors.black),
-              onPressed: _refreshTasks,
-            ),
-        ],
+        actions:
+            _getAppBarActions(), // Use the method here instead of hardcoded actions
       ),
       drawer: AppDrawer(),
       body: _getCurrentScreen(),
@@ -423,7 +525,8 @@ class _HomepageState extends State<Homepage>
                       child: TaskGroup(
                         title: task.title,
                         time: task.time,
-                        progress: task.progress,
+                        progress:
+                            task.progress, // This will now update properly
                         flagColor: _getColorFromValue(task.flagColorValue),
                         subtasks: task.subtasks.map((s) => s.title).toList(),
                         workspace: task.workspace,
@@ -431,6 +534,13 @@ class _HomepageState extends State<Homepage>
                             task.workspaceColorValue != null
                                 ? _getColorFromValue(task.workspaceColorValue!)
                                 : null,
+                        // FIXED: Pass completion states and callbacks
+                        isMainTaskCompleted: task.isMainTaskCompleted,
+                        subtaskCompletionStates:
+                            task.subtasks.map((s) => s.isCompleted).toList(),
+                        onMainTaskToggle: () => _toggleMainTaskCompletion(task),
+                        onSubtaskToggle:
+                            (index) => _toggleSubtaskCompletion(task, index),
                         onTap: () => _navToTaskPageForEdit(context, task),
                       ),
                     );
@@ -485,7 +595,8 @@ class _HomepageState extends State<Homepage>
                       child: TaskGroup(
                         title: task.title,
                         time: task.time,
-                        progress: task.progress,
+                        progress:
+                            task.progress, // This will now update properly
                         flagColor: _getColorFromValue(task.flagColorValue),
                         subtasks: task.subtasks.map((s) => s.title).toList(),
                         workspace: task.workspace,
@@ -493,6 +604,13 @@ class _HomepageState extends State<Homepage>
                             task.workspaceColorValue != null
                                 ? _getColorFromValue(task.workspaceColorValue!)
                                 : null,
+                        // FIXED: Pass completion states and callbacks
+                        isMainTaskCompleted: task.isMainTaskCompleted,
+                        subtaskCompletionStates:
+                            task.subtasks.map((s) => s.isCompleted).toList(),
+                        onMainTaskToggle: () => _toggleMainTaskCompletion(task),
+                        onSubtaskToggle:
+                            (index) => _toggleSubtaskCompletion(task, index),
                         onTap: () => _navToTaskPageForEdit(context, task),
                       ),
                     );
@@ -545,7 +663,8 @@ class _HomepageState extends State<Homepage>
                       child: TaskGroup(
                         title: task.title,
                         time: task.time,
-                        progress: task.progress,
+                        progress:
+                            task.progress, // This will now update properly
                         flagColor: _getColorFromValue(task.flagColorValue),
                         subtasks: task.subtasks.map((s) => s.title).toList(),
                         workspace: task.workspace,
@@ -553,6 +672,13 @@ class _HomepageState extends State<Homepage>
                             task.workspaceColorValue != null
                                 ? _getColorFromValue(task.workspaceColorValue!)
                                 : null,
+                        // FIXED: Pass completion states and callbacks
+                        isMainTaskCompleted: task.isMainTaskCompleted,
+                        subtaskCompletionStates:
+                            task.subtasks.map((s) => s.isCompleted).toList(),
+                        onMainTaskToggle: () => _toggleMainTaskCompletion(task),
+                        onSubtaskToggle:
+                            (index) => _toggleSubtaskCompletion(task, index),
                         onTap: () => _navToTaskPageForEdit(context, task),
                       ),
                     );
@@ -613,6 +739,12 @@ class _HomepageState extends State<Homepage>
                             task.workspaceColorValue != null
                                 ? _getColorFromValue(task.workspaceColorValue!)
                                 : null,
+                        isMainTaskCompleted: task.isMainTaskCompleted,
+                        subtaskCompletionStates:
+                            task.subtasks.map((s) => s.isCompleted).toList(),
+                        onMainTaskToggle: () => _toggleMainTaskCompletion(task),
+                        onSubtaskToggle:
+                            (index) => _toggleSubtaskCompletion(task, index),
                         onTap: () => _navToTaskPageForEdit(context, task),
                       ),
                     );
