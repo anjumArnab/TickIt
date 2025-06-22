@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use
+// CREATED BY ME
 
 import 'package:flutter/material.dart';
 
@@ -8,11 +8,15 @@ class TaskGroup extends StatefulWidget {
   final String progress;
   final Color flagColor;
   final List<String> subtasks;
-  final bool isSelected;
-  final ValueChanged<bool>? onSelectionChanged;
   final String? workspace;
   final Color? workspaceColor;
-  final Function()? onTap;
+  final VoidCallback? onTap;
+
+  // NEW: Completion state parameters
+  final bool isMainTaskCompleted;
+  final List<bool> subtaskCompletionStates;
+  final VoidCallback? onMainTaskToggle;
+  final Function(int)? onSubtaskToggle;
 
   const TaskGroup({
     super.key,
@@ -21,11 +25,13 @@ class TaskGroup extends StatefulWidget {
     required this.progress,
     required this.flagColor,
     required this.subtasks,
-    this.isSelected = false,
-    this.onSelectionChanged,
     this.workspace,
     this.workspaceColor,
     this.onTap,
+    this.isMainTaskCompleted = false,
+    this.subtaskCompletionStates = const [],
+    this.onMainTaskToggle,
+    this.onSubtaskToggle,
   });
 
   @override
@@ -33,15 +39,7 @@ class TaskGroup extends StatefulWidget {
 }
 
 class _TaskGroupState extends State<TaskGroup> {
-  late bool _isSelected;
   final GlobalKey _contentKey = GlobalKey();
-  final Set<int> _selectedSubtaskIndices = <int>{};
-
-  @override
-  void initState() {
-    super.initState();
-    _isSelected = widget.isSelected;
-  }
 
   double _calculateContentHeight() {
     // Base height calculation
@@ -89,18 +87,34 @@ class _TaskGroupState extends State<TaskGroup> {
           // Timeline radio button and line
           Column(
             children: [
-              Checkbox(
-                shape: const CircleBorder(),
-                value: _isSelected,
-                onChanged: (value) {
-                  setState(() {
-                    _isSelected = value ?? false;
-                  });
-                  widget.onSelectionChanged?.call(_isSelected);
-                },
-                activeColor: Colors.green,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
+              GestureDetector(
+                onTap: widget.onMainTaskToggle,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color:
+                          widget.isMainTaskCompleted
+                              ? Colors.green
+                              : Colors.grey[400]!,
+                      width: 2,
+                    ),
+                    color:
+                        widget.isMainTaskCompleted
+                            ? Colors.green
+                            : Colors.transparent,
+                  ),
+                  child:
+                      widget.isMainTaskCompleted
+                          ? const Icon(
+                            Icons.check,
+                            color: Colors.white,
+                            size: 16,
+                          )
+                          : null,
+                ),
               ),
               Container(
                 width: 2,
@@ -109,7 +123,7 @@ class _TaskGroupState extends State<TaskGroup> {
               ),
             ],
           ),
-          SizedBox(width: 16),
+          const SizedBox(width: 16),
           // Task content
           Expanded(
             key: _contentKey,
@@ -126,42 +140,51 @@ class _TaskGroupState extends State<TaskGroup> {
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    SizedBox(width: 8),
-                    Text(
-                      widget.title,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              widget.isMainTaskCompleted
+                                  ? Colors.grey[500]
+                                  : Colors.black,
+                          decoration:
+                              widget.isMainTaskCompleted
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: 5),
+                const SizedBox(height: 5),
                 Row(
                   children: [
                     Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                    SizedBox(width: 5),
+                    const SizedBox(width: 5),
                     Text(
                       widget.time,
                       style: TextStyle(color: Colors.grey[700], fontSize: 14),
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     Icon(
                       Icons.refresh_rounded,
                       size: 16,
                       color: Colors.grey[600],
                     ),
-                    SizedBox(width: 4),
+                    const SizedBox(width: 4),
                     Text(
                       widget.progress,
                       style: TextStyle(color: Colors.grey[700], fontSize: 14),
                     ),
-                    // Workspace container - positioned in the red highlighted area
+                    // Workspace container
                     if (widget.workspace != null) ...[
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       Container(
-                        padding: EdgeInsets.symmetric(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 3,
                         ),
@@ -181,7 +204,7 @@ class _TaskGroupState extends State<TaskGroup> {
                               size: 12,
                               color: _getWorkspaceColor(),
                             ),
-                            SizedBox(width: 4),
+                            const SizedBox(width: 4),
                             Text(
                               widget.workspace!,
                               style: TextStyle(
@@ -196,10 +219,14 @@ class _TaskGroupState extends State<TaskGroup> {
                     ],
                   ],
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 ...widget.subtasks.asMap().entries.map((entry) {
                   int index = entry.key;
                   String subtask = entry.value;
+                  bool isSubtaskCompleted =
+                      index < widget.subtaskCompletionStates.length
+                          ? widget.subtaskCompletionStates[index]
+                          : false;
 
                   return Padding(
                     padding: const EdgeInsets.only(top: 4.0),
@@ -207,26 +234,51 @@ class _TaskGroupState extends State<TaskGroup> {
                       children: [
                         Transform.scale(
                           scale: 0.7,
-                          child: Checkbox(
-                            shape: const CircleBorder(),
-                            value: _selectedSubtaskIndices.contains(index),
-                            onChanged: (bool? value) {
-                              setState(() {
-                                if (value == true) {
-                                  _selectedSubtaskIndices.add(index);
-                                } else {
-                                  _selectedSubtaskIndices.remove(index);
-                                }
-                              });
-                            },
-                            activeColor: Colors.blue,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity.compact,
+                          child: GestureDetector(
+                            onTap: () => widget.onSubtaskToggle?.call(index),
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color:
+                                      isSubtaskCompleted
+                                          ? Colors.blue
+                                          : Colors.grey[400]!,
+                                  width: 2,
+                                ),
+                                color:
+                                    isSubtaskCompleted
+                                        ? Colors.blue
+                                        : Colors.transparent,
+                              ),
+                              child:
+                                  isSubtaskCompleted
+                                      ? const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 12,
+                                      )
+                                      : null,
+                            ),
                           ),
                         ),
                         Expanded(
-                          child: Text(subtask, style: TextStyle(fontSize: 14)),
+                          child: Text(
+                            subtask,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color:
+                                  isSubtaskCompleted
+                                      ? Colors.grey[500]
+                                      : Colors.black87,
+                              decoration:
+                                  isSubtaskCompleted
+                                      ? TextDecoration.lineThrough
+                                      : null,
+                            ),
+                          ),
                         ),
                       ],
                     ),
