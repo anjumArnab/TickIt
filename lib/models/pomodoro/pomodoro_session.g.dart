@@ -1,14 +1,8 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
-
 part of 'pomodoro_session.dart';
-
-// **************************************************************************
-// TypeAdapterGenerator
-// **************************************************************************
 
 class PomodoroSessionAdapter extends TypeAdapter<PomodoroSession> {
   @override
-  final int typeId = 0;
+  final int typeId = 2;
 
   @override
   PomodoroSession read(BinaryReader reader) {
@@ -57,7 +51,7 @@ class PomodoroSessionAdapter extends TypeAdapter<PomodoroSession> {
 
 class PomodoroSettingsAdapter extends TypeAdapter<PomodoroSettings> {
   @override
-  final int typeId = 2;
+  final int typeId = 4;
 
   @override
   PomodoroSettings read(BinaryReader reader) {
@@ -109,7 +103,7 @@ class PomodoroSettingsAdapter extends TypeAdapter<PomodoroSettings> {
 
 class SessionTypeAdapter extends TypeAdapter<SessionType> {
   @override
-  final int typeId = 1;
+  final int typeId = 3;
 
   @override
   SessionType read(BinaryReader reader) {

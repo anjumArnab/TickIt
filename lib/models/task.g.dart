@@ -1,10 +1,4 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
-
 part of 'task.dart';
-
-// **************************************************************************
-// TypeAdapterGenerator
-// **************************************************************************
 
 class TaskAdapter extends TypeAdapter<Task> {
   @override
@@ -71,10 +65,7 @@ class SubtaskAdapter extends TypeAdapter<Subtask> {
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return Subtask(
-      title: fields[0] as String,
-      isCompleted: fields[1] as bool,
-    );
+    return Subtask(title: fields[0] as String, isCompleted: fields[1] as bool);
   }
 
   @override

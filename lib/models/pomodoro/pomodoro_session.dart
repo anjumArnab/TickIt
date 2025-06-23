@@ -1,9 +1,8 @@
-// models/pomodoro_session.dart
 import 'package:hive/hive.dart';
 
 part 'pomodoro_session.g.dart';
 
-@HiveType(typeId: 0)
+@HiveType(typeId: 2)
 class PomodoroSession extends HiveObject {
   @HiveField(0)
   DateTime startTime;
@@ -38,7 +37,7 @@ class PomodoroSession extends HiveObject {
   }
 }
 
-@HiveType(typeId: 1)
+@HiveType(typeId: 3)
 enum SessionType {
   @HiveField(0)
   work,
@@ -51,7 +50,7 @@ enum SessionType {
 }
 
 // models/pomodoro_settings.dart
-@HiveType(typeId: 2)
+@HiveType(typeId: 4)
 class PomodoroSettings extends HiveObject {
   @HiveField(0)
   int workDuration; // in seconds
