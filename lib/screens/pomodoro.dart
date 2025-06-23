@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'dart:async';
-import '../services/db_service_pomodoro.dart';
+import '../services/database/db_service_pomodoro.dart';
 import '../models/pomodoro/pomodoro_session.dart';
 
 class PomodoroTimer extends StatefulWidget {

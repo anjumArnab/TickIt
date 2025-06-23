@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../models/task.dart';
-import '../services/db_service.dart';
+import '../services/database/db_service.dart';
 import '../widgets/task_group.dart';
 
 class WorkspacePage extends StatefulWidget {

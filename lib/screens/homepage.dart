@@ -9,7 +9,7 @@ import '../models/task.dart';
 import '../widgets/calendar.dart';
 import '../widgets/date_task_card.dart';
 import '../widgets/task_group.dart';
-import '../services/db_service.dart';
+import '../services/database/db_service.dart';
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});

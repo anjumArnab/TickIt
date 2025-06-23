@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../widgets/workspace_card.dart';
-import '../services/db_service.dart';
+import '../services/database/db_service.dart';
 import 'workspace_page.dart';
 
 class Workspace extends StatefulWidget {

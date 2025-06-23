@@ -1,5 +1,5 @@
 import 'package:hive_flutter/hive_flutter.dart';
-import '../models/task.dart';
+import '/models/task.dart';
 
 class DBService {
   static const String _boxName = 'tasks';

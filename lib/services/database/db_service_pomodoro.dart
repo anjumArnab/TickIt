@@ -1,6 +1,6 @@
 // services/hive_service.dart
 import 'package:hive_flutter/hive_flutter.dart';
-import '../models/pomodoro/pomodoro_session.dart';
+import '/models/pomodoro/pomodoro_session.dart';
 
 class DBServicePomodoro {
   static const String _sessionsBoxName = 'pomodoro_sessions';
