@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/db_service_pomodoro.dart';
-import '../services/db_service.dart';
+import '../services/database/db_service_pomodoro.dart';
+import '../services/database/db_service.dart';
 import '../screens/homepage.dart';
 
 void main() async {
