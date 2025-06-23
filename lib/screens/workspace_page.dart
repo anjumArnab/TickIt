@@ -179,53 +179,45 @@ class _WorkspacePageState extends State<WorkspacePage> {
           widget.workspaceName,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {
-              // You can add more actions here like edit workspace, etc.
-            },
-          ),
-        ],
       ),
       body: Column(
         children: [
-          // Header with stats
+          // Compact header with stats
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
               color: workspaceColor,
               borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Stats cards
+                  // Compact stats row
                   Row(
                     children: [
                       Expanded(
-                        child: _buildStatCard(
+                        child: _buildCompactStatCard(
                           'Total',
                           stats['total'].toString(),
                           Icons.assignment_outlined,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       Expanded(
-                        child: _buildStatCard(
-                          'Completed',
+                        child: _buildCompactStatCard(
+                          'Done',
                           stats['completed'].toString(),
                           Icons.check_circle_outline,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       Expanded(
-                        child: _buildStatCard(
+                        child: _buildCompactStatCard(
                           'Pending',
                           stats['pending'].toString(),
                           Icons.pending_outlined,
@@ -233,24 +225,30 @@ class _WorkspacePageState extends State<WorkspacePage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
 
-                  // Search bar
+                  // Compact search bar
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(25),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: TextField(
                       controller: searchController,
                       decoration: const InputDecoration(
                         hintText: 'Search tasks...',
-                        hintStyle: TextStyle(color: Colors.grey),
+                        hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
                         border: InputBorder.none,
-                        prefixIcon: Icon(Icons.search, color: Colors.grey),
-                        contentPadding: EdgeInsets.symmetric(vertical: 16),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: Colors.grey,
+                          size: 20,
+                        ),
+                        contentPadding: EdgeInsets.symmetric(vertical: 10),
                       ),
+                      style: const TextStyle(fontSize: 14),
                     ),
                   ),
                 ],
@@ -260,7 +258,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
           // Filter tabs
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             child: Row(
               children: [
                 _buildFilterChip('All', 'all'),
@@ -325,32 +323,38 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon) {
+  Widget _buildCompactStatCard(String title, String value, IconData icon) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
       ),
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: Colors.white, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 12,
-            ),
+          Icon(icon, color: Colors.white, size: 16),
+          const SizedBox(width: 6),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                title,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 10,
+                ),
+              ),
+            ],
           ),
         ],
       ),
