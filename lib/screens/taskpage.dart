@@ -1,8 +1,9 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import '../models/task.dart';
-import '../services/database/db_service.dart';
+import '/models/hive/task.dart';
+import '/services/hive/db_service.dart';
+
 
 class TaskPage extends StatefulWidget {
   final Task? task;

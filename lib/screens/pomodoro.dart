@@ -1,9 +1,11 @@
 // ignore_for_file: deprecated_member_use
 
-import 'package:flutter/material.dart';
 import 'dart:async';
-import '../services/database/db_service_pomodoro.dart';
-import '../models/pomodoro/pomodoro_session.dart';
+import 'package:flutter/material.dart';
+import '/models/hive/pomodoro_session.dart';
+import '/services/hive/db_service_pomodoro.dart';
+
+
 
 class PomodoroTimer extends StatefulWidget {
   const PomodoroTimer({super.key});

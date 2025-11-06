@@ -1,7 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import 'package:tick_it/screens/account.dart';
+import '../screens/account.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});

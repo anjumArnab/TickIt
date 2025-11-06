@@ -1,8 +1,8 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import '/services/hive/db_service.dart';
 import '../widgets/workspace_card.dart';
-import '../services/database/db_service.dart';
 import 'workspace_page.dart';
 
 class Workspace extends StatefulWidget {

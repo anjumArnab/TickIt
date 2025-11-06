@@ -1,15 +1,16 @@
 // ignore_for_file: deprecated_member_use, unused_field
 
 import 'package:flutter/material.dart';
+import '../models/hive/task.dart';
 import '../screens/drawer.dart';
 import '../screens/taskpage.dart';
 import '../screens/pomodoro.dart';
 import '../screens/workspace.dart';
-import '../models/task.dart';
+import '../services/hive/db_service.dart';
 import '../widgets/calendar.dart';
 import '../widgets/date_task_card.dart';
 import '../widgets/task_group.dart';
-import '../services/database/db_service.dart';
+
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/database/db_service_pomodoro.dart';
-import '../services/database/db_service.dart';
+import '../services/hive/db_service.dart';
 import '../screens/homepage.dart';
+import 'services/hive/db_service_pomodoro.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
