@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 class ExpandedCalendar extends StatefulWidget {
-  const ExpandedCalendar({super.key});
+  final DateTime? selectedDay;
+  final Function(DateTime)? onDateSelected;
+  
+  const ExpandedCalendar({
+    super.key,
+    this.selectedDay,
+    this.onDateSelected,
+  });
 
   @override
   State<ExpandedCalendar> createState() => _ExpandedCalendarState();
@@ -10,8 +17,28 @@ class ExpandedCalendar extends StatefulWidget {
 
 class _ExpandedCalendarState extends State<ExpandedCalendar> {
   bool _showFullCalendar = false;
-  DateTime _focusedDay = DateTime.now();
+  late DateTime _focusedDay;
   DateTime? _selectedDay;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusedDay = widget.selectedDay ?? DateTime.now();
+    _selectedDay = widget.selectedDay;
+  }
+
+  @override
+  void didUpdateWidget(ExpandedCalendar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedDay != oldWidget.selectedDay) {
+      setState(() {
+        _selectedDay = widget.selectedDay;
+        if (widget.selectedDay != null) {
+          _focusedDay = widget.selectedDay!;
+        }
+      });
+    }
+  }
 
   // Get next 7 days starting from today
   List<DateTime> _getNext7Days() {
@@ -42,6 +69,18 @@ class _ExpandedCalendarState extends State<ExpandedCalendar> {
       'December',
     ];
     return months[date.month - 1];
+  }
+
+  void _onDaySelected(DateTime selectedDay) {
+    setState(() {
+      _selectedDay = selectedDay;
+      _focusedDay = selectedDay;
+    });
+    
+    // Notify parent widget
+    if (widget.onDateSelected != null) {
+      widget.onDateSelected!(selectedDay);
+    }
   }
 
   @override
@@ -101,76 +140,67 @@ class _ExpandedCalendarState extends State<ExpandedCalendar> {
           if (!_showFullCalendar) ...[
             const SizedBox(height: 8),
             SizedBox(
-              // Changed from Container to SizedBox
               height: 55,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children:
-                    next7Days.map((day) {
-                      bool isSelected =
-                          _selectedDay != null && isSameDay(_selectedDay!, day);
-                      bool isToday = isSameDay(day, DateTime.now());
+                children: next7Days.map((day) {
+                  bool isSelected =
+                      _selectedDay != null && isSameDay(_selectedDay!, day);
+                  bool isToday = isSameDay(day, DateTime.now());
 
-                      return Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedDay = day;
-                              _focusedDay = day;
-                            });
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 2),
-                            decoration: BoxDecoration(
-                              color:
-                                  isSelected
-                                      ? Colors.blue
-                                      : isToday
-                                      ? Colors.blue[100]
-                                      : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color:
-                                    isToday && !isSelected
-                                        ? Colors.blue
-                                        : Colors.transparent,
-                                width: 1,
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  _getWeekdayAbbr(day),
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w500,
-                                    color:
-                                        isSelected
-                                            ? Colors.white
-                                            : Colors.grey[600],
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${day.day}',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color:
-                                        isSelected
-                                            ? Colors.white
-                                            : isToday
-                                            ? Colors.blue
-                                            : Colors.black,
-                                  ),
-                                ),
-                              ],
-                            ),
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        _onDaySelected(day);
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.blue
+                              : isToday
+                                  ? Colors.blue[100]
+                                  : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isToday && !isSelected
+                                ? Colors.blue
+                                : Colors.transparent,
+                            width: 1,
                           ),
                         ),
-                      );
-                    }).toList(),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _getWeekdayAbbr(day),
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w500,
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${day.day}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected
+                                    ? Colors.white
+                                    : isToday
+                                        ? Colors.blue
+                                        : Colors.black,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
             ),
           ],
@@ -178,7 +208,6 @@ class _ExpandedCalendarState extends State<ExpandedCalendar> {
           // Full Calendar (shown when expanded)
           if (_showFullCalendar) ...[
             const SizedBox(height: 12),
-            // Removed fixed height container - let TableCalendar size itself
             TableCalendar<dynamic>(
               firstDay: DateTime.utc(2020, 1, 1),
               lastDay: DateTime.utc(2030, 12, 31),
@@ -187,17 +216,14 @@ class _ExpandedCalendarState extends State<ExpandedCalendar> {
                 return isSameDay(_selectedDay, day);
               },
               onDaySelected: (selectedDay, focusedDay) {
-                setState(() {
-                  _selectedDay = selectedDay;
-                  _focusedDay = focusedDay;
-                });
+                _onDaySelected(selectedDay);
               },
               onPageChanged: (focusedDay) {
                 setState(() {
                   _focusedDay = focusedDay;
                 });
               },
-              calendarFormat: CalendarFormat.month, // Explicitly set format
+              calendarFormat: CalendarFormat.month,
               availableCalendarFormats: const {CalendarFormat.month: 'Month'},
               headerStyle: HeaderStyle(
                 formatButtonVisible: false,
@@ -243,7 +269,7 @@ class _ExpandedCalendarState extends State<ExpandedCalendar> {
                 ),
               ),
             ),
-            const SizedBox(height: 8), // Add some bottom padding
+            const SizedBox(height: 8),
           ],
         ],
       ),
