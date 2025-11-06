@@ -11,7 +11,6 @@ import '../widgets/calendar.dart';
 import '../widgets/date_task_card.dart';
 import '../widgets/task_group.dart';
 
-
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
 
@@ -21,13 +20,13 @@ class Homepage extends StatefulWidget {
 
 class _HomepageState extends State<Homepage>
     with SingleTickerProviderStateMixin {
-  // Fixed: Use GlobalKey<State> instead of the private class name
   final GlobalKey<State> _pomodoroKey = GlobalKey<State>();
 
   int selectedBottomIndex = 0;
   late TabController _tabController;
   DateTime? _selectedDay;
   bool _showCalendar = false;
+  bool _isDateFiltered = false; // Track filtering by specific date
 
   // Database service instance
   final DBService _dbService = DBService.instance;
@@ -93,6 +92,24 @@ class _HomepageState extends State<Homepage>
     }
   }
 
+  // Handle date selection from calendar
+  void _onDateSelected(DateTime selectedDate) {
+    setState(() {
+      _selectedDay = selectedDate;
+      _isDateFiltered = true;
+      // Optionally close calendar after selection
+      _showCalendar = false;
+    });
+  }
+
+  // Clear date filter
+  void _clearDateFilter() {
+    setState(() {
+      _selectedDay = DateTime.now();
+      _isDateFiltered = false;
+    });
+  }
+
   // Group tasks by date
   Map<DateTime, List<Task>> _groupTasksByDate() {
     Map<DateTime, List<Task>> groupedTasks = {};
@@ -114,7 +131,7 @@ class _HomepageState extends State<Homepage>
     return groupedTasks;
   }
 
-  // Get task key from database - FIXED METHOD
+  // Get task key from database
   int? _getTaskKey(Task task) {
     final box = _dbService.tasksBox;
     for (var key in box.keys) {
@@ -129,13 +146,13 @@ class _HomepageState extends State<Homepage>
     return null;
   }
 
-  // NEW METHOD: Handle main task completion toggle
+  // Handle main task completion toggle
   Future<void> _toggleMainTaskCompletion(Task task) async {
     final taskKey = _getTaskKey(task);
     if (taskKey != null) {
       try {
         await _dbService.toggleMainTaskCompletion(taskKey);
-        _refreshTasks(); // Refresh to show updated state
+        _refreshTasks();
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -149,13 +166,13 @@ class _HomepageState extends State<Homepage>
     }
   }
 
-  // NEW METHOD: Handle subtask completion toggle
+  // Handle subtask completion toggle
   Future<void> _toggleSubtaskCompletion(Task task, int subtaskIndex) async {
     final taskKey = _getTaskKey(task);
     if (taskKey != null) {
       try {
         await _dbService.toggleSubtaskCompletion(taskKey, subtaskIndex);
-        _refreshTasks(); // Refresh to show updated state
+        _refreshTasks();
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -185,7 +202,6 @@ class _HomepageState extends State<Homepage>
         _refreshTasks();
       }
     } else {
-      // Show error if task key not found
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Error: Task not found for editing'),
@@ -228,7 +244,7 @@ class _HomepageState extends State<Homepage>
     }
   }
 
-  // Update your _getAppBarActions method
+  // Get app bar actions
   List<Widget>? _getAppBarActions() {
     switch (selectedBottomIndex) {
       case 0:
@@ -243,73 +259,88 @@ class _HomepageState extends State<Homepage>
           IconButton(
             icon: Icon(Icons.bar_chart, color: Colors.black),
             onPressed: () {
-              // Fixed: Call method directly on the PomodoroTimer widget
-              if (_pomodoroKey.currentWidget is PomodoroTimer) {
-                // Create a new instance to show stats
-                showDialog(
-                  context: context,
-                  builder:
-                      (context) => AlertDialog(
-                        title: Text('Statistics'),
-                        content: Text('Stats feature will be implemented here'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: Text('Close'),
-                          ),
-                        ],
-                      ),
-                );
-              }
+              showDialog(
+                context: context,
+                builder:
+                    (context) => AlertDialog(
+                      title: Text('Statistics'),
+                      content: Text('Stats feature will be implemented here'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text('Close'),
+                        ),
+                      ],
+                    ),
+              );
             },
           ),
           IconButton(
             icon: Icon(Icons.settings, color: Colors.black),
             onPressed: () {
-              // Fixed: Call method directly on the PomodoroTimer widget
-              if (_pomodoroKey.currentWidget is PomodoroTimer) {
-                // Create a new instance to show settings
-                showDialog(
-                  context: context,
-                  builder:
-                      (context) => AlertDialog(
-                        title: Text('Settings'),
-                        content: Text(
-                          'Settings feature will be implemented here',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: Text('Close'),
-                          ),
-                        ],
+              showDialog(
+                context: context,
+                builder:
+                    (context) => AlertDialog(
+                      title: Text('Settings'),
+                      content: Text(
+                        'Settings feature will be implemented here',
                       ),
-                );
-              }
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text('Close'),
+                        ),
+                      ],
+                    ),
+              );
             },
           ),
         ];
       case 2:
-        return null; // No actions for workspace
+        return null;
       default:
         return null;
     }
   }
 
-  // Build the timeline screen (original homepage content)
+  // Build the timeline screen
   Widget _buildTimelineScreen() {
     return GestureDetector(
-      // Close calendar when tapping outside
       onTap: _closeCalendar,
       child: Column(
         children: [
-          // Tab Bar - only show for timeline
+          // Date filter indicator
+          if (_isDateFiltered)
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              color: Colors.blue[50],
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today, size: 16, color: Colors.blue[800]),
+                  SizedBox(width: 8),
+                  Text(
+                    'Showing tasks for: ${_selectedDay!.day}/${_selectedDay!.month}/${_selectedDay!.year}',
+                    style: TextStyle(
+                      color: Colors.blue[800],
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Spacer(),
+                  GestureDetector(
+                    onTap: _clearDateFilter,
+                    child: Icon(Icons.close, size: 20, color: Colors.blue[800]),
+                  ),
+                ],
+              ),
+            ),
+
+          // Tab Bar
           Container(
             color: Colors.white,
             child: TabBar(
               controller: _tabController,
               onTap: (index) {
-                // Close calendar when switching tabs
                 _closeCalendar();
               },
               tabs: [
@@ -355,7 +386,6 @@ class _HomepageState extends State<Homepage>
       MaterialPageRoute(builder: (context) => TaskPage()),
     );
 
-    // Refresh tasks if a new task was added
     if (result != null) {
       _refreshTasks();
     }
@@ -376,12 +406,10 @@ class _HomepageState extends State<Homepage>
             fontWeight: FontWeight.bold,
           ),
         ),
-        actions:
-            _getAppBarActions(), // Use the method here instead of hardcoded actions
+        actions: _getAppBarActions(),
       ),
       drawer: AppDrawer(),
       body: _getCurrentScreen(),
-      // Only show floating action button on Timeline tab
       floatingActionButton:
           selectedBottomIndex == 0
               ? FloatingActionButton(
@@ -391,14 +419,17 @@ class _HomepageState extends State<Homepage>
                 child: Icon(Icons.add, color: Colors.white),
               )
               : null,
-
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Calendar section that expands from bottom nav - only for timeline
-          if (selectedBottomIndex == 0 && _showCalendar) ExpandedCalendar(),
+          // Calendar section
+          if (selectedBottomIndex == 0 && _showCalendar)
+            ExpandedCalendar(
+              selectedDay: _selectedDay,
+              onDateSelected: _onDateSelected,
+            ),
 
-          // Bottom Navigation Bar with removed container background
+          // Bottom Navigation Bar
           Theme(
             data: Theme.of(context).copyWith(
               splashColor: Colors.transparent,
@@ -414,21 +445,15 @@ class _HomepageState extends State<Homepage>
               currentIndex: selectedBottomIndex,
               onTap: (index) {
                 setState(() {
-                  // Handle calendar logic only for timeline tab
                   if (index == 0) {
                     if (selectedBottomIndex == 0) {
-                      // If already on timeline, toggle calendar
                       _showCalendar = !_showCalendar;
                     } else {
-                      // Switching to timeline, don't show calendar initially
                       _showCalendar = false;
                     }
                   } else {
-                    // Hide calendar for other tabs
                     _showCalendar = false;
                   }
-
-                  // Update selected index
                   selectedBottomIndex = index;
                 });
               },
@@ -441,7 +466,7 @@ class _HomepageState extends State<Homepage>
               elevation: 5,
               showSelectedLabels: true,
               showUnselectedLabels: true,
-              enableFeedback: false, // Removes ripple effect
+              enableFeedback: false,
               items: [
                 BottomNavigationBarItem(
                   icon: Icon(Icons.timeline),
@@ -464,7 +489,11 @@ class _HomepageState extends State<Homepage>
   }
 
   Widget _buildAllTodosTab() {
-    if (_allTasks.isEmpty) {
+    // Filter tasks by selected date if date filter is active
+    List<Task> tasksToDisplay =
+        _isDateFiltered ? _dbService.getTasksByDate(_selectedDay!) : _allTasks;
+
+    if (tasksToDisplay.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -472,7 +501,7 @@ class _HomepageState extends State<Homepage>
             Icon(Icons.task_alt, size: 64, color: Colors.grey[400]),
             SizedBox(height: 16),
             Text(
-              'No tasks yet',
+              _isDateFiltered ? 'No tasks for this date' : 'No tasks yet',
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey[600],
@@ -481,7 +510,9 @@ class _HomepageState extends State<Homepage>
             ),
             SizedBox(height: 8),
             Text(
-              'Tap + to create your first task',
+              _isDateFiltered
+                  ? 'Try selecting a different date'
+                  : 'Tap + to create your first task',
               style: TextStyle(fontSize: 14, color: Colors.grey[500]),
             ),
           ],
@@ -489,7 +520,66 @@ class _HomepageState extends State<Homepage>
       );
     }
 
-    Map<DateTime, List<Task>> groupedTasks = _groupTasksByDate();
+    // If date filtered, show tasks in simple list
+    if (_isDateFiltered) {
+      return SingleChildScrollView(
+        child: Column(
+          children: [
+            SizedBox(height: 20),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children:
+                    tasksToDisplay.map((task) {
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: 8),
+                        child: TaskGroup(
+                          title: task.title,
+                          time: task.time,
+                          progress: task.progress,
+                          flagColor: _getColorFromValue(task.flagColorValue),
+                          subtasks: task.subtasks.map((s) => s.title).toList(),
+                          workspace: task.workspace,
+                          workspaceColor:
+                              task.workspaceColorValue != null
+                                  ? _getColorFromValue(
+                                    task.workspaceColorValue!,
+                                  )
+                                  : null,
+                          isMainTaskCompleted: task.isMainTaskCompleted,
+                          subtaskCompletionStates:
+                              task.subtasks.map((s) => s.isCompleted).toList(),
+                          onMainTaskToggle:
+                              () => _toggleMainTaskCompletion(task),
+                          onSubtaskToggle:
+                              (index) => _toggleSubtaskCompletion(task, index),
+                          onTap: () => _navToTaskPageForEdit(context, task),
+                        ),
+                      );
+                    }).toList(),
+              ),
+            ),
+            SizedBox(height: 100),
+          ],
+        ),
+      );
+    }
+
+    // If not date filtered, show grouped by date
+    Map<DateTime, List<Task>> groupedTasks = {};
+    for (Task task in tasksToDisplay) {
+      DateTime dateOnly = DateTime(
+        task.date.year,
+        task.date.month,
+        task.date.day,
+      );
+      if (groupedTasks.containsKey(dateOnly)) {
+        groupedTasks[dateOnly]!.add(task);
+      } else {
+        groupedTasks[dateOnly] = [task];
+      }
+    }
+
     List<DateTime> sortedDates =
         groupedTasks.keys.toList()..sort((a, b) => a.compareTo(b));
 
@@ -497,37 +587,31 @@ class _HomepageState extends State<Homepage>
       child: Column(
         children: [
           SizedBox(height: 15),
-
-          // Loop through each date and display tasks
           ...sortedDates.map((date) {
             List<Task> tasksForDate = groupedTasks[date]!;
-
             return Padding(
               padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Date header using DateTaskCard
                   DateTaskCard(
                     date: date,
                     taskCount: tasksForDate.length,
                     onTap: () {
-                      // Handle date card tap - could navigate to day view
-                      print('Tapped date: ${date.toString()}');
+                      setState(() {
+                        _selectedDay = date;
+                        _isDateFiltered = true;
+                      });
                     },
                   ),
-
                   SizedBox(height: 12),
-
-                  // Tasks for this date
                   ...tasksForDate.map((task) {
                     return Padding(
                       padding: EdgeInsets.only(bottom: 8),
                       child: TaskGroup(
                         title: task.title,
                         time: task.time,
-                        progress:
-                            task.progress, // This will now update properly
+                        progress: task.progress,
                         flagColor: _getColorFromValue(task.flagColorValue),
                         subtasks: task.subtasks.map((s) => s.title).toList(),
                         workspace: task.workspace,
@@ -535,7 +619,6 @@ class _HomepageState extends State<Homepage>
                             task.workspaceColorValue != null
                                 ? _getColorFromValue(task.workspaceColorValue!)
                                 : null,
-                        // FIXED: Pass completion states and callbacks
                         isMainTaskCompleted: task.isMainTaskCompleted,
                         subtaskCompletionStates:
                             task.subtasks.map((s) => s.isCompleted).toList(),
@@ -550,15 +633,13 @@ class _HomepageState extends State<Homepage>
               ),
             );
           }),
-
-          SizedBox(height: 100), // Bottom padding
+          SizedBox(height: 100),
         ],
       ),
     );
   }
 
   Widget _buildTodayTab() {
-    // Use database service method for today's tasks
     List<Task> todayTasks = _dbService.getTodayTasks();
 
     if (todayTasks.isEmpty) {
@@ -585,7 +666,6 @@ class _HomepageState extends State<Homepage>
       child: Column(
         children: [
           SizedBox(height: 20),
-
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
             child: Column(
@@ -596,8 +676,7 @@ class _HomepageState extends State<Homepage>
                       child: TaskGroup(
                         title: task.title,
                         time: task.time,
-                        progress:
-                            task.progress, // This will now update properly
+                        progress: task.progress,
                         flagColor: _getColorFromValue(task.flagColorValue),
                         subtasks: task.subtasks.map((s) => s.title).toList(),
                         workspace: task.workspace,
@@ -605,7 +684,6 @@ class _HomepageState extends State<Homepage>
                             task.workspaceColorValue != null
                                 ? _getColorFromValue(task.workspaceColorValue!)
                                 : null,
-                        // FIXED: Pass completion states and callbacks
                         isMainTaskCompleted: task.isMainTaskCompleted,
                         subtaskCompletionStates:
                             task.subtasks.map((s) => s.isCompleted).toList(),
@@ -618,7 +696,6 @@ class _HomepageState extends State<Homepage>
                   }).toList(),
             ),
           ),
-
           SizedBox(height: 100),
         ],
       ),
@@ -626,7 +703,6 @@ class _HomepageState extends State<Homepage>
   }
 
   Widget _buildUpcomingTab() {
-    // Use database service method for upcoming tasks
     List<Task> upcomingTasks = _dbService.getUpcomingTasks();
 
     if (upcomingTasks.isEmpty) {
@@ -653,7 +729,6 @@ class _HomepageState extends State<Homepage>
       child: Column(
         children: [
           SizedBox(height: 20),
-
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
             child: Column(
@@ -664,8 +739,7 @@ class _HomepageState extends State<Homepage>
                       child: TaskGroup(
                         title: task.title,
                         time: task.time,
-                        progress:
-                            task.progress, // This will now update properly
+                        progress: task.progress,
                         flagColor: _getColorFromValue(task.flagColorValue),
                         subtasks: task.subtasks.map((s) => s.title).toList(),
                         workspace: task.workspace,
@@ -673,7 +747,6 @@ class _HomepageState extends State<Homepage>
                             task.workspaceColorValue != null
                                 ? _getColorFromValue(task.workspaceColorValue!)
                                 : null,
-                        // FIXED: Pass completion states and callbacks
                         isMainTaskCompleted: task.isMainTaskCompleted,
                         subtaskCompletionStates:
                             task.subtasks.map((s) => s.isCompleted).toList(),
@@ -686,7 +759,6 @@ class _HomepageState extends State<Homepage>
                   }).toList(),
             ),
           ),
-
           SizedBox(height: 100),
         ],
       ),
@@ -694,7 +766,6 @@ class _HomepageState extends State<Homepage>
   }
 
   Widget _buildCompletedTab() {
-    // Use database service method for completed tasks
     List<Task> completedTasks = _dbService.getCompletedTasks();
 
     if (completedTasks.isEmpty) {
@@ -721,7 +792,6 @@ class _HomepageState extends State<Homepage>
       child: Column(
         children: [
           SizedBox(height: 20),
-
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
             child: Column(
@@ -752,7 +822,6 @@ class _HomepageState extends State<Homepage>
                   }).toList(),
             ),
           ),
-
           SizedBox(height: 100),
         ],
       ),
