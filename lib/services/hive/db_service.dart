@@ -38,7 +38,6 @@ class DBService {
     return _box!;
   }
 
-
   /// Add a new task
   Future<void> addTask(Task task) async {
     try {
@@ -151,31 +150,6 @@ class DBService {
     }
   }
 
-  /// Get tasks grouped by date
-  Map<DateTime, List<Task>> getTasksGroupedByDate() {
-    try {
-      final Map<DateTime, List<Task>> groupedTasks = {};
-
-      for (Task task in tasksBox.values) {
-        final dateOnly = DateTime(
-          task.date.year,
-          task.date.month,
-          task.date.day,
-        );
-
-        if (groupedTasks.containsKey(dateOnly)) {
-          groupedTasks[dateOnly]!.add(task);
-        } else {
-          groupedTasks[dateOnly] = [task];
-        }
-      }
-
-      return groupedTasks;
-    } catch (e) {
-      throw Exception('Failed to group tasks by date: $e');
-    }
-  }
-
   /// Update an existing task
   Future<void> updateTask(int key, Task updatedTask) async {
     try {
@@ -200,21 +174,6 @@ class DBService {
     }
   }
 
-  /// Set main task completion status
-  Future<void> setMainTaskCompletion(int key, bool isCompleted) async {
-    try {
-      final task = tasksBox.get(key);
-      if (task != null) {
-        task.isMainTaskCompleted = isCompleted;
-        await task.save();
-      } else {
-        throw Exception('Task not found');
-      }
-    } catch (e) {
-      throw Exception('Failed to set main task completion: $e');
-    }
-  }
-
   /// Toggle subtask completion
   Future<void> toggleSubtaskCompletion(int taskKey, int subtaskIndex) async {
     try {
@@ -228,25 +187,6 @@ class DBService {
       }
     } catch (e) {
       throw Exception('Failed to toggle subtask completion: $e');
-    }
-  }
-
-  /// Set subtask completion status
-  Future<void> setSubtaskCompletion(
-    int taskKey,
-    int subtaskIndex,
-    bool isCompleted,
-  ) async {
-    try {
-      final task = tasksBox.get(taskKey);
-      if (task != null && subtaskIndex < task.subtasks.length) {
-        task.subtasks[subtaskIndex].isCompleted = isCompleted;
-        await task.save();
-      } else {
-        throw Exception('Task or subtask not found');
-      }
-    } catch (e) {
-      throw Exception('Failed to set subtask completion: $e');
     }
   }
 
