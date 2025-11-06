@@ -1,5 +1,3 @@
-// CREATED BY ME
-
 import 'package:flutter/material.dart';
 
 class TaskGroup extends StatefulWidget {
@@ -11,8 +9,6 @@ class TaskGroup extends StatefulWidget {
   final String? workspace;
   final Color? workspaceColor;
   final VoidCallback? onTap;
-
-  // NEW: Completion state parameters
   final bool isMainTaskCompleted;
   final List<bool> subtaskCompletionStates;
   final VoidCallback? onMainTaskToggle;
