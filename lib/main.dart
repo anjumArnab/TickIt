@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../screens/navigation_wrapper.dart';
 import '../services/hive/db_service.dart';
-import '../screens/homepage.dart';
 import 'services/hive/db_service_pomodoro.dart';
 
 void main() async {
@@ -30,7 +30,7 @@ class TickIt extends StatelessWidget {
         primarySwatch: Colors.blue,
         textTheme: GoogleFonts.poppinsTextTheme(),
       ),
-      home: Homepage(),
+      home: NavigationWrapper(),
     );
   }
 }
