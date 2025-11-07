@@ -49,7 +49,6 @@ enum SessionType {
   longBreak,
 }
 
-// models/pomodoro_settings.dart
 @HiveType(typeId: 4)
 class PomodoroSettings extends HiveObject {
   @HiveField(0)

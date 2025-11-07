@@ -1,9 +1,7 @@
-// ignore_for_file: deprecated_member_use
-
 import 'package:flutter/material.dart';
-import '/services/hive/db_service.dart';
+import '../screens/workspace_page.dart';
+import '../services/hive/db_service.dart';
 import '../widgets/workspace_card.dart';
-import 'workspace_page.dart';
 
 class Workspace extends StatefulWidget {
   const Workspace({super.key});
@@ -38,10 +36,9 @@ class _WorkspaceState extends State<Workspace> {
         filteredWorkspaces = workspaces;
       });
     } catch (e) {
-      // Handle error - maybe show snackbar
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error loading workspaces: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading workspaces: $e')),
+      );
     }
   }
 
@@ -55,7 +52,6 @@ class _WorkspaceState extends State<Workspace> {
     });
   }
 
-  // Get workspace stats
   Map<String, dynamic> _getWorkspaceStats(String workspace) {
     try {
       final tasks = DBService.instance.getTasksByWorkspace(workspace);
@@ -66,7 +62,6 @@ class _WorkspaceState extends State<Workspace> {
               )
               .length;
 
-      // Get the most recent task's date for "last updated"
       DateTime? lastUpdated;
       if (tasks.isNotEmpty) {
         lastUpdated = tasks
@@ -84,9 +79,7 @@ class _WorkspaceState extends State<Workspace> {
     }
   }
 
-  // Get workspace color
   Color _getWorkspaceColor(String workspace) {
-    // Try to get color from a task in this workspace
     try {
       final tasks = DBService.instance.getTasksByWorkspace(workspace);
       if (tasks.isNotEmpty && tasks.first.workspaceColorValue != null) {
@@ -96,7 +89,6 @@ class _WorkspaceState extends State<Workspace> {
       // Fallback to default colors
     }
 
-    // Default colors based on workspace name
     switch (workspace.toLowerCase()) {
       case 'personal':
         return const Color(0xFFFF6B6B);
@@ -111,7 +103,6 @@ class _WorkspaceState extends State<Workspace> {
       case 'health':
         return const Color(0xFF34C759);
       default:
-        // Generate a color based on workspace name hash
         final hash = workspace.hashCode;
         return Color.fromARGB(
           255,
@@ -122,7 +113,6 @@ class _WorkspaceState extends State<Workspace> {
     }
   }
 
-  // Get workspace icon
   String _getWorkspaceIcon(String workspace) {
     switch (workspace.toLowerCase()) {
       case 'personal':
@@ -142,7 +132,6 @@ class _WorkspaceState extends State<Workspace> {
     }
   }
 
-  // Format last updated time
   String _formatLastUpdated(DateTime? lastUpdated) {
     if (lastUpdated == null) return 'No tasks';
 
@@ -160,7 +149,6 @@ class _WorkspaceState extends State<Workspace> {
     }
   }
 
-  // Navigate to workspace page
   void _navigateToWorkspace(String workspace) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -171,13 +159,24 @@ class _WorkspaceState extends State<Workspace> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFF5F5F5),
-      child: Padding(
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Workspace',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Search Bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
@@ -204,8 +203,6 @@ class _WorkspaceState extends State<Workspace> {
               ),
             ),
             const SizedBox(height: 24),
-
-            // Workspaces List
             Expanded(
               child:
                   filteredWorkspaces.isEmpty

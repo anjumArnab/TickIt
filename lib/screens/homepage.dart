@@ -1,13 +1,9 @@
-// ignore_for_file: deprecated_member_use, unused_field
-
 import 'package:flutter/material.dart';
 import '../models/hive/task.dart';
-import '../screens/drawer.dart';
+import '../screens/app_drawer.dart';
 import '../screens/taskpage.dart';
-import '../screens/pomodoro.dart';
-import '../screens/workspace.dart';
 import '../services/hive/db_service.dart';
-import '../widgets/calendar.dart';
+import '../widgets/expanded_calendar.dart';
 import '../widgets/date_task_card.dart';
 import '../widgets/task_group.dart';
 
@@ -20,18 +16,12 @@ class Homepage extends StatefulWidget {
 
 class _HomepageState extends State<Homepage>
     with SingleTickerProviderStateMixin {
-  final GlobalKey<State> _pomodoroKey = GlobalKey<State>();
-
-  int selectedBottomIndex = 0;
   late TabController _tabController;
   DateTime? _selectedDay;
   bool _showCalendar = false;
-  bool _isDateFiltered = false; // Track filtering by specific date
+  bool _isDateFiltered = false;
 
-  // Database service instance
   final DBService _dbService = DBService.instance;
-
-  // Tasks loaded from database
   List<Task> _allTasks = [];
   bool _isLoading = true;
 
@@ -49,7 +39,6 @@ class _HomepageState extends State<Homepage>
     super.dispose();
   }
 
-  // Load tasks from database
   Future<void> _loadTasks() async {
     try {
       setState(() {
@@ -78,12 +67,10 @@ class _HomepageState extends State<Homepage>
     }
   }
 
-  // Refresh tasks after operations
   void _refreshTasks() {
     _loadTasks();
   }
 
-  // Function to close calendar
   void _closeCalendar() {
     if (_showCalendar) {
       setState(() {
@@ -92,17 +79,14 @@ class _HomepageState extends State<Homepage>
     }
   }
 
-  // Handle date selection from calendar
   void _onDateSelected(DateTime selectedDate) {
     setState(() {
       _selectedDay = selectedDate;
       _isDateFiltered = true;
-      // Optionally close calendar after selection
       _showCalendar = false;
     });
   }
 
-  // Clear date filter
   void _clearDateFilter() {
     setState(() {
       _selectedDay = DateTime.now();
@@ -110,28 +94,6 @@ class _HomepageState extends State<Homepage>
     });
   }
 
-  // Group tasks by date
-  Map<DateTime, List<Task>> _groupTasksByDate() {
-    Map<DateTime, List<Task>> groupedTasks = {};
-
-    for (Task task in _allTasks) {
-      DateTime dateOnly = DateTime(
-        task.date.year,
-        task.date.month,
-        task.date.day,
-      );
-
-      if (groupedTasks.containsKey(dateOnly)) {
-        groupedTasks[dateOnly]!.add(task);
-      } else {
-        groupedTasks[dateOnly] = [task];
-      }
-    }
-
-    return groupedTasks;
-  }
-
-  // Get task key from database
   int? _getTaskKey(Task task) {
     final box = _dbService.tasksBox;
     for (var key in box.keys) {
@@ -146,7 +108,6 @@ class _HomepageState extends State<Homepage>
     return null;
   }
 
-  // Handle main task completion toggle
   Future<void> _toggleMainTaskCompletion(Task task) async {
     final taskKey = _getTaskKey(task);
     if (taskKey != null) {
@@ -166,7 +127,6 @@ class _HomepageState extends State<Homepage>
     }
   }
 
-  // Handle subtask completion toggle
   Future<void> _toggleSubtaskCompletion(Task task, int subtaskIndex) async {
     final taskKey = _getTaskKey(task);
     if (taskKey != null) {
@@ -186,7 +146,6 @@ class _HomepageState extends State<Homepage>
     }
   }
 
-  // Navigate to task page for editing with proper task key
   void _navToTaskPageForEdit(BuildContext context, Task task) async {
     final taskKey = _getTaskKey(task);
 
@@ -211,173 +170,8 @@ class _HomepageState extends State<Homepage>
     }
   }
 
-  // Convert color value to Color object
   Color _getColorFromValue(int colorValue) {
     return Color(colorValue);
-  }
-
-  // Get the current screen based on selected bottom nav index
-  Widget _getCurrentScreen() {
-    switch (selectedBottomIndex) {
-      case 0:
-        return _buildTimelineScreen();
-      case 1:
-        return PomodoroTimer(key: _pomodoroKey);
-      case 2:
-        return Workspace();
-      default:
-        return _buildTimelineScreen();
-    }
-  }
-
-  // Get app bar title based on selected tab
-  String _getAppBarTitle() {
-    switch (selectedBottomIndex) {
-      case 0:
-        return 'Tick It';
-      case 1:
-        return 'Pomodoro Timer';
-      case 2:
-        return 'Workspace';
-      default:
-        return 'Tick It';
-    }
-  }
-
-  // Get app bar actions
-  List<Widget>? _getAppBarActions() {
-    switch (selectedBottomIndex) {
-      case 0:
-        return [
-          IconButton(
-            icon: Icon(Icons.refresh, color: Colors.black),
-            onPressed: _refreshTasks,
-          ),
-        ];
-      case 1:
-        return [
-          IconButton(
-            icon: Icon(Icons.bar_chart, color: Colors.black),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder:
-                    (context) => AlertDialog(
-                      title: Text('Statistics'),
-                      content: Text('Stats feature will be implemented here'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text('Close'),
-                        ),
-                      ],
-                    ),
-              );
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.settings, color: Colors.black),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder:
-                    (context) => AlertDialog(
-                      title: Text('Settings'),
-                      content: Text(
-                        'Settings feature will be implemented here',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text('Close'),
-                        ),
-                      ],
-                    ),
-              );
-            },
-          ),
-        ];
-      case 2:
-        return null;
-      default:
-        return null;
-    }
-  }
-
-  // Build the timeline screen
-  Widget _buildTimelineScreen() {
-    return GestureDetector(
-      onTap: _closeCalendar,
-      child: Column(
-        children: [
-          // Date filter indicator
-          if (_isDateFiltered)
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              color: Colors.blue[50],
-              child: Row(
-                children: [
-                  Icon(Icons.calendar_today, size: 16, color: Colors.blue[800]),
-                  SizedBox(width: 8),
-                  Text(
-                    'Showing tasks for: ${_selectedDay!.day}/${_selectedDay!.month}/${_selectedDay!.year}',
-                    style: TextStyle(
-                      color: Colors.blue[800],
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Spacer(),
-                  GestureDetector(
-                    onTap: _clearDateFilter,
-                    child: Icon(Icons.close, size: 20, color: Colors.blue[800]),
-                  ),
-                ],
-              ),
-            ),
-
-          // Tab Bar
-          Container(
-            color: Colors.white,
-            child: TabBar(
-              controller: _tabController,
-              onTap: (index) {
-                _closeCalendar();
-              },
-              tabs: [
-                Tab(text: 'All todos'),
-                Tab(text: 'Today'),
-                Tab(text: 'Upcoming'),
-                Tab(text: 'Completed'),
-              ],
-              labelColor: Colors.blue[800],
-              unselectedLabelColor: Colors.grey[600],
-              indicatorColor: Colors.blue[800],
-              labelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-              unselectedLabelStyle: TextStyle(
-                fontWeight: FontWeight.normal,
-                fontSize: 16,
-              ),
-            ),
-          ),
-
-          // Tab Bar View
-          Expanded(
-            child:
-                _isLoading
-                    ? Center(child: CircularProgressIndicator())
-                    : TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildAllTodosTab(),
-                        _buildTodayTab(),
-                        _buildUpcomingTab(),
-                        _buildCompletedTab(),
-                      ],
-                    ),
-          ),
-        ],
-      ),
-    );
   }
 
   void _navToTaskPage(BuildContext context) async {
@@ -398,98 +192,132 @@ class _HomepageState extends State<Homepage>
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Text(
-          _getAppBarTitle(),
+        title: const Text(
+          'Tick It',
           style: TextStyle(
             color: Colors.black,
             fontSize: 28,
             fontWeight: FontWeight.bold,
           ),
         ),
-        actions: _getAppBarActions(),
-      ),
-      drawer: AppDrawer(),
-      body: _getCurrentScreen(),
-      floatingActionButton:
-          selectedBottomIndex == 0
-              ? FloatingActionButton(
-                backgroundColor: Colors.green,
-                shape: const CircleBorder(),
-                onPressed: () => _navToTaskPage(context),
-                child: Icon(Icons.add, color: Colors.white),
-              )
-              : null,
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Calendar section
-          if (selectedBottomIndex == 0 && _showCalendar)
-            ExpandedCalendar(
-              selectedDay: _selectedDay,
-              onDateSelected: _onDateSelected,
+        actions: [
+          IconButton(
+            icon: Icon(
+              _showCalendar ? Icons.calendar_today : Icons.calendar_month,
+              color: _showCalendar ? Colors.blue : Colors.black,
             ),
-
-          // Bottom Navigation Bar
-          Theme(
-            data: Theme.of(context).copyWith(
-              splashColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              bottomNavigationBarTheme: BottomNavigationBarThemeData(
-                selectedItemColor: Colors.green[800],
-                unselectedItemColor: Colors.grey[600],
-                backgroundColor: Colors.white,
-                type: BottomNavigationBarType.fixed,
-              ),
-            ),
-            child: BottomNavigationBar(
-              currentIndex: selectedBottomIndex,
-              onTap: (index) {
-                setState(() {
-                  if (index == 0) {
-                    if (selectedBottomIndex == 0) {
-                      _showCalendar = !_showCalendar;
-                    } else {
-                      _showCalendar = false;
-                    }
-                  } else {
-                    _showCalendar = false;
-                  }
-                  selectedBottomIndex = index;
-                });
-              },
-              type: BottomNavigationBarType.fixed,
-              backgroundColor: Colors.white,
-              selectedItemColor: Colors.green[800],
-              unselectedItemColor: Colors.grey[600],
-              selectedFontSize: 12,
-              unselectedFontSize: 12,
-              elevation: 5,
-              showSelectedLabels: true,
-              showUnselectedLabels: true,
-              enableFeedback: false,
-              items: [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.timeline),
-                  label: 'Timeline',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.timer),
-                  label: 'Pomodoro',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.folder_outlined),
-                  label: 'Workspace',
-                ),
-              ],
-            ),
+            onPressed: () {
+              setState(() {
+                _showCalendar = !_showCalendar;
+              });
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black),
+            onPressed: _refreshTasks,
           ),
         ],
       ),
+      drawer: AppDrawer(),
+      body: GestureDetector(
+        onTap: _closeCalendar,
+        child: Column(
+          children: [
+            if (_isDateFiltered)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                color: Colors.blue[50],
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 16,
+                      color: Colors.blue[800],
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Showing tasks for: ${_selectedDay!.day}/${_selectedDay!.month}/${_selectedDay!.year}',
+                      style: TextStyle(
+                        color: Colors.blue[800],
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: _clearDateFilter,
+                      child: Icon(
+                        Icons.close,
+                        size: 20,
+                        color: Colors.blue[800],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Container(
+              color: Colors.white,
+              child: TabBar(
+                controller: _tabController,
+                onTap: (index) {
+                  _closeCalendar();
+                },
+                tabs: const [
+                  Tab(text: 'All todos'),
+                  Tab(text: 'Today'),
+                  Tab(text: 'Upcoming'),
+                  Tab(text: 'Completed'),
+                ],
+                labelColor: Colors.blue[800],
+                unselectedLabelColor: Colors.grey[600],
+                indicatorColor: Colors.blue[800],
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.normal,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            Expanded(
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildAllTodosTab(),
+                          _buildTodayTab(),
+                          _buildUpcomingTab(),
+                          _buildCompletedTab(),
+                        ],
+                      ),
+            ),
+            if (_showCalendar)
+              ExpandedCalendar(
+                selectedDay: _selectedDay,
+                onDateSelected: _onDateSelected,
+              ),
+          ],
+        ),
+      ),
+      floatingActionButton:
+          _showCalendar
+              ? null
+              : FloatingActionButton(
+                backgroundColor: Colors.green,
+                shape: const CircleBorder(),
+                onPressed: () => _navToTaskPage(context),
+                child: const Icon(Icons.add, color: Colors.white),
+              ),
     );
   }
 
   Widget _buildAllTodosTab() {
-    // Filter tasks by selected date if date filter is active
     List<Task> tasksToDisplay =
         _isDateFiltered ? _dbService.getTasksByDate(_selectedDay!) : _allTasks;
 
@@ -499,7 +327,7 @@ class _HomepageState extends State<Homepage>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.task_alt, size: 64, color: Colors.grey[400]),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               _isDateFiltered ? 'No tasks for this date' : 'No tasks yet',
               style: TextStyle(
@@ -508,7 +336,7 @@ class _HomepageState extends State<Homepage>
                 fontWeight: FontWeight.w500,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               _isDateFiltered
                   ? 'Try selecting a different date'
@@ -520,19 +348,18 @@ class _HomepageState extends State<Homepage>
       );
     }
 
-    // If date filtered, show tasks in simple list
     if (_isDateFiltered) {
       return SingleChildScrollView(
         child: Column(
           children: [
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 children:
                     tasksToDisplay.map((task) {
                       return Padding(
-                        padding: EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.only(bottom: 8),
                         child: TaskGroup(
                           title: task.title,
                           time: task.time,
@@ -559,13 +386,12 @@ class _HomepageState extends State<Homepage>
                     }).toList(),
               ),
             ),
-            SizedBox(height: 100),
+            const SizedBox(height: 100),
           ],
         ),
       );
     }
 
-    // If not date filtered, show grouped by date
     Map<DateTime, List<Task>> groupedTasks = {};
     for (Task task in tasksToDisplay) {
       DateTime dateOnly = DateTime(
@@ -586,11 +412,11 @@ class _HomepageState extends State<Homepage>
     return SingleChildScrollView(
       child: Column(
         children: [
-          SizedBox(height: 15),
+          const SizedBox(height: 15),
           ...sortedDates.map((date) {
             List<Task> tasksForDate = groupedTasks[date]!;
             return Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -604,10 +430,10 @@ class _HomepageState extends State<Homepage>
                       });
                     },
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   ...tasksForDate.map((task) {
                     return Padding(
-                      padding: EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(bottom: 8),
                       child: TaskGroup(
                         title: task.title,
                         time: task.time,
@@ -633,7 +459,7 @@ class _HomepageState extends State<Homepage>
               ),
             );
           }),
-          SizedBox(height: 100),
+          const SizedBox(height: 100),
         ],
       ),
     );
@@ -648,7 +474,7 @@ class _HomepageState extends State<Homepage>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.today, size: 64, color: Colors.grey[400]),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               'No tasks for today',
               style: TextStyle(
@@ -665,14 +491,14 @@ class _HomepageState extends State<Homepage>
     return SingleChildScrollView(
       child: Column(
         children: [
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               children:
                   todayTasks.map((task) {
                     return Padding(
-                      padding: EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(bottom: 8),
                       child: TaskGroup(
                         title: task.title,
                         time: task.time,
@@ -696,7 +522,7 @@ class _HomepageState extends State<Homepage>
                   }).toList(),
             ),
           ),
-          SizedBox(height: 100),
+          const SizedBox(height: 100),
         ],
       ),
     );
@@ -711,7 +537,7 @@ class _HomepageState extends State<Homepage>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.schedule, size: 64, color: Colors.grey[400]),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               'No upcoming tasks',
               style: TextStyle(
@@ -728,14 +554,14 @@ class _HomepageState extends State<Homepage>
     return SingleChildScrollView(
       child: Column(
         children: [
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               children:
                   upcomingTasks.map((task) {
                     return Padding(
-                      padding: EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(bottom: 8),
                       child: TaskGroup(
                         title: task.title,
                         time: task.time,
@@ -759,7 +585,7 @@ class _HomepageState extends State<Homepage>
                   }).toList(),
             ),
           ),
-          SizedBox(height: 100),
+          const SizedBox(height: 100),
         ],
       ),
     );
@@ -774,7 +600,7 @@ class _HomepageState extends State<Homepage>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.check_circle_outline, size: 64, color: Colors.grey[400]),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               'No completed tasks',
               style: TextStyle(
@@ -791,14 +617,14 @@ class _HomepageState extends State<Homepage>
     return SingleChildScrollView(
       child: Column(
         children: [
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               children:
                   completedTasks.map((task) {
                     return Padding(
-                      padding: EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(bottom: 8),
                       child: TaskGroup(
                         title: task.title,
                         time: task.time,
@@ -822,7 +648,7 @@ class _HomepageState extends State<Homepage>
                   }).toList(),
             ),
           ),
-          SizedBox(height: 100),
+          const SizedBox(height: 100),
         ],
       ),
     );
