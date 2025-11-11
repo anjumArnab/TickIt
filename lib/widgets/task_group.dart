@@ -149,7 +149,7 @@ class _TaskGroupState extends State<TaskGroup> {
                                   : Colors.black,
                           decoration:
                               widget.isMainTaskCompleted
-                                  ? TextDecoration.lineThrough
+                                  ? TextDecoration.none
                                   : null,
                         ),
                       ),
@@ -271,7 +271,7 @@ class _TaskGroupState extends State<TaskGroup> {
                                       : Colors.black87,
                               decoration:
                                   isSubtaskCompleted
-                                      ? TextDecoration.lineThrough
+                                      ? TextDecoration.none
                                       : null,
                             ),
                           ),
