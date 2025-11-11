@@ -269,10 +269,6 @@ class _TaskGroupState extends State<TaskGroup> {
                                   isSubtaskCompleted
                                       ? Colors.grey[500]
                                       : Colors.black87,
-                              decoration:
-                                  isSubtaskCompleted
-                                      ? TextDecoration.none
-                                      : null,
                             ),
                           ),
                         ),

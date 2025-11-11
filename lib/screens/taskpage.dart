@@ -2,8 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:tick_it/providers/task_provider.dart';
 import '../models/hive/task.dart';
-import '../providers/task_provider.dart';
 
 class TaskPage extends StatefulWidget {
   final Task? task;
@@ -419,10 +419,10 @@ class _TaskPageState extends State<TaskPage> {
                               child: Text(
                                 subtask.title,
                                 style: TextStyle(
-                                  decoration:
+                                  color:
                                       subtask.isCompleted
-                                          ? TextDecoration.lineThrough
-                                          : null,
+                                          ? Colors.grey[500]
+                                          : Colors.black87,
                                 ),
                               ),
                             ),
