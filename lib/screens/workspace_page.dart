@@ -1,9 +1,10 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/hive/task.dart';
-import '../services/hive/db_service.dart';
 import '../widgets/task_group.dart';
+import '../providers/task_provider.dart';
 
 class WorkspacePage extends StatefulWidget {
   final String workspaceName;
@@ -15,9 +16,7 @@ class WorkspacePage extends StatefulWidget {
 }
 
 class _WorkspacePageState extends State<WorkspacePage> {
-  List<Task> tasks = [];
   List<Task> filteredTasks = [];
-  bool isLoading = true;
   String searchQuery = '';
   TextEditingController searchController = TextEditingController();
   String selectedFilter = 'all'; // all, completed, pending
@@ -25,8 +24,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
   @override
   void initState() {
     super.initState();
-    _loadTasks();
     searchController.addListener(_filterTasks);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadTasks();
+    });
   }
 
   @override
@@ -36,37 +38,23 @@ class _WorkspacePageState extends State<WorkspacePage> {
   }
 
   void _loadTasks() {
+    final taskProvider = context.read<TaskProvider>();
+    final tasks = taskProvider.getTasksByWorkspace(widget.workspaceName);
     setState(() {
-      isLoading = true;
+      _applyFilters(tasks);
     });
-
-    try {
-      final workspaceTasks = DBService.instance.getTasksByWorkspace(
-        widget.workspaceName,
-      );
-      setState(() {
-        tasks = workspaceTasks;
-        _applyFilters();
-        isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error loading tasks: $e')));
-    }
   }
 
   void _filterTasks() {
     setState(() {
       searchQuery = searchController.text;
-      _applyFilters();
+      final taskProvider = context.read<TaskProvider>();
+      final tasks = taskProvider.getTasksByWorkspace(widget.workspaceName);
+      _applyFilters(tasks);
     });
   }
 
-  void _applyFilters() {
+  void _applyFilters(List<Task> tasks) {
     filteredTasks =
         tasks.where((task) {
           // Search filter
@@ -95,13 +83,14 @@ class _WorkspacePageState extends State<WorkspacePage> {
     filteredTasks.sort((a, b) => b.date.compareTo(a.date));
   }
 
-  // Get workspace color
   Color _getWorkspaceColor() {
+    final taskProvider = context.read<TaskProvider>();
+    final tasks = taskProvider.getTasksByWorkspace(widget.workspaceName);
+
     if (tasks.isNotEmpty && tasks.first.workspaceColorValue != null) {
       return Color(tasks.first.workspaceColorValue!);
     }
 
-    // Default colors based on workspace name
     switch (widget.workspaceName.toLowerCase()) {
       case 'personal':
         return const Color(0xFFFF6B6B);
@@ -120,206 +109,212 @@ class _WorkspacePageState extends State<WorkspacePage> {
     }
   }
 
-  // Get task statistics
   Map<String, int> _getTaskStats() {
-    final totalTasks = tasks.length;
-    final completedTasks =
-        tasks
-            .where(
-              (task) => task.isMainTaskCompleted || task.allSubtasksCompleted,
-            )
-            .length;
-    final pendingTasks = totalTasks - completedTasks;
+    final taskProvider = context.read<TaskProvider>();
+    final stats = taskProvider.getWorkspaceStats(widget.workspaceName);
 
     return {
-      'total': totalTasks,
-      'completed': completedTasks,
-      'pending': pendingTasks,
+      'total': stats['total'] ?? 0,
+      'completed': stats['completed'] ?? 0,
+      'pending': stats['pending'] ?? 0,
     };
   }
 
-  // Handle task completion toggle
   void _toggleMainTaskCompletion(Task task) async {
-    try {
-      final taskKey = task.key as int;
-      await DBService.instance.toggleMainTaskCompletion(taskKey);
-      _loadTasks(); // Reload to reflect changes
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error updating task: $e')));
+    final taskProvider = context.read<TaskProvider>();
+    final taskKey = taskProvider.getTaskKey(task);
+
+    if (taskKey != null) {
+      try {
+        await taskProvider.toggleMainTaskCompletion(taskKey);
+        _loadTasks();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error updating task: $e')));
+        }
+      }
     }
   }
 
-  // Handle subtask completion toggle
   void _toggleSubtaskCompletion(Task task, int subtaskIndex) async {
-    try {
-      final taskKey = task.key as int;
-      await DBService.instance.toggleSubtaskCompletion(taskKey, subtaskIndex);
-      _loadTasks(); // Reload to reflect changes
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error updating subtask: $e')));
+    final taskProvider = context.read<TaskProvider>();
+    final taskKey = taskProvider.getTaskKey(task);
+
+    if (taskKey != null) {
+      try {
+        await taskProvider.toggleSubtaskCompletion(taskKey, subtaskIndex);
+        _loadTasks();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error updating subtask: $e')));
+        }
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final workspaceColor = _getWorkspaceColor();
-    final stats = _getTaskStats();
+    return Consumer<TaskProvider>(
+      builder: (context, taskProvider, child) {
+        final workspaceColor = _getWorkspaceColor();
+        final stats = _getTaskStats();
+        final tasks = taskProvider.getTasksByWorkspace(widget.workspaceName);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        backgroundColor: workspaceColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: Text(
-          widget.workspaceName,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-        ),
-      ),
-      body: Column(
-        children: [
-          // Compact header with stats
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: workspaceColor,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
+        return Scaffold(
+          backgroundColor: const Color(0xFFF5F5F5),
+          appBar: AppBar(
+            backgroundColor: workspaceColor,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            title: Text(
+              widget.workspaceName,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
             ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Compact stats row
-                  Row(
+          ),
+          body: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: workspaceColor,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(20),
+                    bottomRight: Radius.circular(20),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: _buildCompactStatCard(
-                          'Total',
-                          stats['total'].toString(),
-                          Icons.assignment_outlined,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildCompactStatCard(
+                              'Total',
+                              stats['total'].toString(),
+                              Icons.assignment_outlined,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildCompactStatCard(
+                              'Done',
+                              stats['completed'].toString(),
+                              Icons.check_circle_outline,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildCompactStatCard(
+                              'Pending',
+                              stats['pending'].toString(),
+                              Icons.pending_outlined,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildCompactStatCard(
-                          'Done',
-                          stats['completed'].toString(),
-                          Icons.check_circle_outline,
+                      const SizedBox(height: 12),
+                      Container(
+                        height: 40,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildCompactStatCard(
-                          'Pending',
-                          stats['pending'].toString(),
-                          Icons.pending_outlined,
+                        child: TextField(
+                          controller: searchController,
+                          decoration: const InputDecoration(
+                            hintText: 'Search tasks...',
+                            hintStyle: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 14,
+                            ),
+                            border: InputBorder.none,
+                            prefixIcon: Icon(
+                              Icons.search,
+                              color: Colors.grey,
+                              size: 20,
+                            ),
+                            contentPadding: EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          style: const TextStyle(fontSize: 14),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-
-                  // Compact search bar
-                  Container(
-                    height: 40,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: TextField(
-                      controller: searchController,
-                      decoration: const InputDecoration(
-                        hintText: 'Search tasks...',
-                        hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
-                        border: InputBorder.none,
-                        prefixIcon: Icon(
-                          Icons.search,
-                          color: Colors.grey,
-                          size: 20,
-                        ),
-                        contentPadding: EdgeInsets.symmetric(vertical: 10),
-                      ),
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              Container(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    _buildFilterChip('All', 'all'),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('Completed', 'completed'),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('Pending', 'pending'),
+                  ],
+                ),
+              ),
+              Expanded(
+                child:
+                    taskProvider.isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : filteredTasks.isEmpty
+                        ? _buildEmptyState(tasks.isEmpty)
+                        : Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: ListView.builder(
+                            itemCount: filteredTasks.length,
+                            itemBuilder: (context, index) {
+                              final task = filteredTasks[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 20),
+                                child: TaskGroup(
+                                  title: task.title,
+                                  time: task.time,
+                                  progress: task.progress,
+                                  flagColor: Color(task.flagColorValue),
+                                  subtasks:
+                                      task.subtasks
+                                          .map((s) => s.title)
+                                          .toList(),
+                                  workspace: task.workspace,
+                                  workspaceColor:
+                                      task.workspaceColorValue != null
+                                          ? Color(task.workspaceColorValue!)
+                                          : null,
+                                  isMainTaskCompleted: task.isMainTaskCompleted,
+                                  subtaskCompletionStates:
+                                      task.subtasks
+                                          .map((s) => s.isCompleted)
+                                          .toList(),
+                                  onMainTaskToggle:
+                                      () => _toggleMainTaskCompletion(task),
+                                  onSubtaskToggle:
+                                      (subtaskIndex) =>
+                                          _toggleSubtaskCompletion(
+                                            task,
+                                            subtaskIndex,
+                                          ),
+                                  onTap: () {
+                                    // You can add task detail navigation here
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+              ),
+            ],
           ),
-
-          // Filter tabs
-          Container(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                _buildFilterChip('All', 'all'),
-                const SizedBox(width: 8),
-                _buildFilterChip('Completed', 'completed'),
-                const SizedBox(width: 8),
-                _buildFilterChip('Pending', 'pending'),
-              ],
-            ),
-          ),
-
-          // Tasks list
-          Expanded(
-            child:
-                isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : filteredTasks.isEmpty
-                    ? _buildEmptyState()
-                    : Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: ListView.builder(
-                        itemCount: filteredTasks.length,
-                        itemBuilder: (context, index) {
-                          final task = filteredTasks[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 20),
-                            child: TaskGroup(
-                              title: task.title,
-                              time: task.time,
-                              progress: task.progress,
-                              flagColor: Color(task.flagColorValue),
-                              subtasks:
-                                  task.subtasks.map((s) => s.title).toList(),
-                              workspace: task.workspace,
-                              workspaceColor:
-                                  task.workspaceColorValue != null
-                                      ? Color(task.workspaceColorValue!)
-                                      : null,
-                              isMainTaskCompleted: task.isMainTaskCompleted,
-                              subtaskCompletionStates:
-                                  task.subtasks
-                                      .map((s) => s.isCompleted)
-                                      .toList(),
-                              onMainTaskToggle:
-                                  () => _toggleMainTaskCompletion(task),
-                              onSubtaskToggle:
-                                  (subtaskIndex) => _toggleSubtaskCompletion(
-                                    task,
-                                    subtaskIndex,
-                                  ),
-                              onTap: () {
-                                // You can add task detail navigation here
-                              },
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -367,7 +362,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
       onTap: () {
         setState(() {
           selectedFilter = value;
-          _applyFilters();
+          final taskProvider = context.read<TaskProvider>();
+          final tasks = taskProvider.getTasksByWorkspace(widget.workspaceName);
+          _applyFilters(tasks);
         });
       },
       child: Container(
@@ -390,11 +387,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool noTasksInWorkspace) {
     String message;
     String subtitle;
 
-    if (tasks.isEmpty) {
+    if (noTasksInWorkspace) {
       message = 'No tasks in ${widget.workspaceName}';
       subtitle = 'Create some tasks to get started';
     } else if (searchQuery.isNotEmpty) {

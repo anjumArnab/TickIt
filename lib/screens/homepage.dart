@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/hive/task.dart';
-import '../screens/app_drawer.dart';
+import '../widgets/app_drawer.dart';
 import '../screens/taskpage.dart';
-import '../services/hive/db_service.dart';
 import '../widgets/expanded_calendar.dart';
 import '../widgets/date_task_card.dart';
 import '../widgets/task_group.dart';
+import '../providers/task_provider.dart';
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -19,56 +20,23 @@ class _HomepageState extends State<Homepage>
   late TabController _tabController;
   DateTime? _selectedDay;
   bool _showCalendar = false;
-  bool _isDateFiltered = false;
-
-  final DBService _dbService = DBService.instance;
-  List<Task> _allTasks = [];
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _selectedDay = DateTime.now();
-    _loadTasks();
+
+    // Initialize provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TaskProvider>().initialize();
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadTasks() async {
-    try {
-      setState(() {
-        _isLoading = true;
-      });
-
-      final tasks = _dbService.getAllTasks();
-
-      setState(() {
-        _allTasks = tasks;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading tasks: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  void _refreshTasks() {
-    _loadTasks();
   }
 
   void _closeCalendar() {
@@ -80,40 +48,27 @@ class _HomepageState extends State<Homepage>
   }
 
   void _onDateSelected(DateTime selectedDate) {
+    context.read<TaskProvider>().setDateFilter(selectedDate);
     setState(() {
       _selectedDay = selectedDate;
-      _isDateFiltered = true;
       _showCalendar = false;
     });
   }
 
   void _clearDateFilter() {
+    context.read<TaskProvider>().clearDateFilter();
     setState(() {
       _selectedDay = DateTime.now();
-      _isDateFiltered = false;
     });
   }
 
-  int? _getTaskKey(Task task) {
-    final box = _dbService.tasksBox;
-    for (var key in box.keys) {
-      final boxTask = box.get(key);
-      if (boxTask != null &&
-          boxTask.title == task.title &&
-          boxTask.date == task.date &&
-          boxTask.time == task.time) {
-        return key as int;
-      }
-    }
-    return null;
-  }
-
   Future<void> _toggleMainTaskCompletion(Task task) async {
-    final taskKey = _getTaskKey(task);
+    final provider = context.read<TaskProvider>();
+    final taskKey = provider.getTaskKey(task);
+
     if (taskKey != null) {
       try {
-        await _dbService.toggleMainTaskCompletion(taskKey);
-        _refreshTasks();
+        await provider.toggleMainTaskCompletion(taskKey);
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -128,11 +83,12 @@ class _HomepageState extends State<Homepage>
   }
 
   Future<void> _toggleSubtaskCompletion(Task task, int subtaskIndex) async {
-    final taskKey = _getTaskKey(task);
+    final provider = context.read<TaskProvider>();
+    final taskKey = provider.getTaskKey(task);
+
     if (taskKey != null) {
       try {
-        await _dbService.toggleSubtaskCompletion(taskKey, subtaskIndex);
-        _refreshTasks();
+        await provider.toggleSubtaskCompletion(taskKey, subtaskIndex);
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -147,7 +103,8 @@ class _HomepageState extends State<Homepage>
   }
 
   void _navToTaskPageForEdit(BuildContext context, Task task) async {
-    final taskKey = _getTaskKey(task);
+    final provider = context.read<TaskProvider>();
+    final taskKey = provider.getTaskKey(task);
 
     if (taskKey != null) {
       final result = await Navigator.push(
@@ -158,7 +115,7 @@ class _HomepageState extends State<Homepage>
       );
 
       if (result != null) {
-        _refreshTasks();
+        // Provider will auto-update via notifyListeners
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -177,149 +134,155 @@ class _HomepageState extends State<Homepage>
   void _navToTaskPage(BuildContext context) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => TaskPage()),
+      MaterialPageRoute(builder: (context) => const TaskPage()),
     );
 
     if (result != null) {
-      _refreshTasks();
+      // Provider will auto-update via notifyListeners
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Tick It',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _showCalendar ? Icons.calendar_today : Icons.calendar_month,
-              color: _showCalendar ? Colors.blue : Colors.black,
-            ),
-            onPressed: () {
-              setState(() {
-                _showCalendar = !_showCalendar;
-              });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.black),
-            onPressed: _refreshTasks,
-          ),
-        ],
-      ),
-      drawer: AppDrawer(),
-      body: GestureDetector(
-        onTap: _closeCalendar,
-        child: Column(
-          children: [
-            if (_isDateFiltered)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                color: Colors.blue[50],
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today,
-                      size: 16,
-                      color: Colors.blue[800],
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Showing tasks for: ${_selectedDay!.day}/${_selectedDay!.month}/${_selectedDay!.year}',
-                      style: TextStyle(
-                        color: Colors.blue[800],
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: _clearDateFilter,
-                      child: Icon(
-                        Icons.close,
-                        size: 20,
-                        color: Colors.blue[800],
-                      ),
-                    ),
-                  ],
-                ),
+    return Consumer<TaskProvider>(
+      builder: (context, taskProvider, child) {
+        return Scaffold(
+          backgroundColor: Colors.grey[50],
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            title: const Text(
+              'Tick It',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
               ),
-            Container(
-              color: Colors.white,
-              child: TabBar(
-                controller: _tabController,
-                onTap: (index) {
-                  _closeCalendar();
+            ),
+            actions: [
+              IconButton(
+                icon: Icon(
+                  _showCalendar ? Icons.calendar_today : Icons.calendar_month,
+                  color: _showCalendar ? Colors.blue : Colors.black,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _showCalendar = !_showCalendar;
+                  });
                 },
-                tabs: const [
-                  Tab(text: 'All todos'),
-                  Tab(text: 'Today'),
-                  Tab(text: 'Upcoming'),
-                  Tab(text: 'Completed'),
-                ],
-                labelColor: Colors.blue[800],
-                unselectedLabelColor: Colors.grey[600],
-                indicatorColor: Colors.blue[800],
-                labelStyle: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh, color: Colors.black),
+                onPressed: () => taskProvider.loadTasks(),
+              ),
+            ],
+          ),
+          drawer: const AppDrawer(),
+          body: GestureDetector(
+            onTap: _closeCalendar,
+            child: Column(
+              children: [
+                if (taskProvider.isDateFiltered)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    color: Colors.blue[50],
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today,
+                          size: 16,
+                          color: Colors.blue[800],
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Showing tasks for: ${_selectedDay!.day}/${_selectedDay!.month}/${_selectedDay!.year}',
+                          style: TextStyle(
+                            color: Colors.blue[800],
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: _clearDateFilter,
+                          child: Icon(
+                            Icons.close,
+                            size: 20,
+                            color: Colors.blue[800],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                Container(
+                  color: Colors.white,
+                  child: TabBar(
+                    controller: _tabController,
+                    onTap: (index) {
+                      _closeCalendar();
+                    },
+                    tabs: const [
+                      Tab(text: 'All todos'),
+                      Tab(text: 'Today'),
+                      Tab(text: 'Upcoming'),
+                      Tab(text: 'Completed'),
+                    ],
+                    labelColor: Colors.blue[800],
+                    unselectedLabelColor: Colors.grey[600],
+                    indicatorColor: Colors.blue[800],
+                    labelStyle: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontWeight: FontWeight.normal,
+                      fontSize: 16,
+                    ),
+                  ),
                 ),
-                unselectedLabelStyle: const TextStyle(
-                  fontWeight: FontWeight.normal,
-                  fontSize: 16,
+                Expanded(
+                  child:
+                      taskProvider.isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _buildAllTodosTab(taskProvider),
+                              _buildTodayTab(taskProvider),
+                              _buildUpcomingTab(taskProvider),
+                              _buildCompletedTab(taskProvider),
+                            ],
+                          ),
                 ),
-              ),
+                if (_showCalendar)
+                  ExpandedCalendar(
+                    selectedDay: _selectedDay,
+                    onDateSelected: _onDateSelected,
+                  ),
+              ],
             ),
-            Expanded(
-              child:
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildAllTodosTab(),
-                          _buildTodayTab(),
-                          _buildUpcomingTab(),
-                          _buildCompletedTab(),
-                        ],
-                      ),
-            ),
-            if (_showCalendar)
-              ExpandedCalendar(
-                selectedDay: _selectedDay,
-                onDateSelected: _onDateSelected,
-              ),
-          ],
-        ),
-      ),
-      floatingActionButton:
-          _showCalendar
-              ? null
-              : FloatingActionButton(
-                backgroundColor: Colors.green,
-                shape: const CircleBorder(),
-                onPressed: () => _navToTaskPage(context),
-                child: const Icon(Icons.add, color: Colors.white),
-              ),
+          ),
+          floatingActionButton:
+              _showCalendar
+                  ? null
+                  : FloatingActionButton(
+                    backgroundColor: Colors.green,
+                    shape: const CircleBorder(),
+                    onPressed: () => _navToTaskPage(context),
+                    child: const Icon(Icons.add, color: Colors.white),
+                  ),
+        );
+      },
     );
   }
 
-  Widget _buildAllTodosTab() {
+  Widget _buildAllTodosTab(TaskProvider taskProvider) {
     List<Task> tasksToDisplay =
-        _isDateFiltered ? _dbService.getTasksByDate(_selectedDay!) : _allTasks;
+        taskProvider.isDateFiltered
+            ? taskProvider.getTasksByDate(_selectedDay!)
+            : taskProvider.allTasks;
 
     if (tasksToDisplay.isEmpty) {
       return Center(
@@ -329,7 +292,9 @@ class _HomepageState extends State<Homepage>
             Icon(Icons.task_alt, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              _isDateFiltered ? 'No tasks for this date' : 'No tasks yet',
+              taskProvider.isDateFiltered
+                  ? 'No tasks for this date'
+                  : 'No tasks yet',
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey[600],
@@ -338,7 +303,7 @@ class _HomepageState extends State<Homepage>
             ),
             const SizedBox(height: 8),
             Text(
-              _isDateFiltered
+              taskProvider.isDateFiltered
                   ? 'Try selecting a different date'
                   : 'Tap + to create your first task',
               style: TextStyle(fontSize: 14, color: Colors.grey[500]),
@@ -348,7 +313,7 @@ class _HomepageState extends State<Homepage>
       );
     }
 
-    if (_isDateFiltered) {
+    if (taskProvider.isDateFiltered) {
       return SingleChildScrollView(
         child: Column(
           children: [
@@ -424,9 +389,9 @@ class _HomepageState extends State<Homepage>
                     date: date,
                     taskCount: tasksForDate.length,
                     onTap: () {
+                      taskProvider.setDateFilter(date);
                       setState(() {
                         _selectedDay = date;
-                        _isDateFiltered = true;
                       });
                     },
                   ),
@@ -465,8 +430,8 @@ class _HomepageState extends State<Homepage>
     );
   }
 
-  Widget _buildTodayTab() {
-    List<Task> todayTasks = _dbService.getTodayTasks();
+  Widget _buildTodayTab(TaskProvider taskProvider) {
+    List<Task> todayTasks = taskProvider.getTodayTasks();
 
     if (todayTasks.isEmpty) {
       return Center(
@@ -528,8 +493,8 @@ class _HomepageState extends State<Homepage>
     );
   }
 
-  Widget _buildUpcomingTab() {
-    List<Task> upcomingTasks = _dbService.getUpcomingTasks();
+  Widget _buildUpcomingTab(TaskProvider taskProvider) {
+    List<Task> upcomingTasks = taskProvider.getUpcomingTasks();
 
     if (upcomingTasks.isEmpty) {
       return Center(
@@ -591,8 +556,8 @@ class _HomepageState extends State<Homepage>
     );
   }
 
-  Widget _buildCompletedTab() {
-    List<Task> completedTasks = _dbService.getCompletedTasks();
+  Widget _buildCompletedTab(TaskProvider taskProvider) {
+    List<Task> completedTasks = taskProvider.getCompletedTasks();
 
     if (completedTasks.isEmpty) {
       return Center(

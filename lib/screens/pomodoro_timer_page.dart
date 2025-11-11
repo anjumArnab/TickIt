@@ -1,8 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/hive/pomodoro_session.dart';
-import '../services/hive/db_service_pomodoro.dart';
+import '../providers/pomodoro_provider.dart';
 
 class PomodoroTimerPage extends StatefulWidget {
   const PomodoroTimerPage({super.key});
@@ -12,179 +11,30 @@ class PomodoroTimerPage extends StatefulWidget {
 }
 
 class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
-  Timer? _timer;
-  int _seconds = 25 * 60;
-  bool _isRunning = false;
-  bool _isWorkSession = true;
-  int _completedSessions = 0;
-
-  DateTime? _currentSessionStart;
-  PomodoroSettings _settings = PomodoroSettings();
-
   @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-    _loadStatistics();
-  }
+void initState() {
+  super.initState();
 
-  Future<void> _loadSettings() async {
-    final settings = DBServicePomodoro.getSettings();
-    setState(() {
-      _settings = settings;
-      _seconds = _isWorkSession ? _settings.workDuration : _getBreakDuration();
-    });
-  }
-
-  Future<void> _loadStatistics() async {
-    final totalSessions = DBServicePomodoro.getTotalCompletedSessions();
-    setState(() {
-      _completedSessions = totalSessions;
-    });
-  }
-
-  void _startTimer() {
-    setState(() {
-      _isRunning = true;
-      _currentSessionStart = DateTime.now();
-    });
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        if (_seconds > 0) {
-          _seconds--;
-        } else {
-          _completeSession();
-        }
-      });
-    });
-  }
-
-  void _pauseTimer() {
-    setState(() {
-      _isRunning = false;
-    });
-    _timer?.cancel();
-  }
-
-  void _resetTimer() {
-    _timer?.cancel();
-
-    if (_currentSessionStart != null) {
-      _saveIncompleteSession();
-    }
-
-    setState(() {
-      _isRunning = false;
-      _currentSessionStart = null;
-      _seconds = _isWorkSession ? _settings.workDuration : _getBreakDuration();
-    });
-  }
-
-  Future<void> _completeSession() async {
-    _timer?.cancel();
-
-    await _saveCompletedSession();
-
-    setState(() {
-      _isRunning = false;
-
-      if (_isWorkSession) {
-        _completedSessions++;
-        DBServicePomodoro.setTotalCompletedSessions(_completedSessions);
-
-        final currentTotal = DBServicePomodoro.getTotalWorkMinutes();
-        DBServicePomodoro.setTotalWorkMinutes(
-          currentTotal + (_settings.workDuration ~/ 60),
-        );
-
-        _isWorkSession = false;
-        _seconds = _getBreakDuration();
-      } else {
-        _isWorkSession = true;
-        _seconds = _settings.workDuration;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final provider = context.read<PomodoroProvider>();
+    provider.initialize();
+    
+    // Set the callback to show dialog when session completes
+    provider.onSessionComplete = () {
+      if (mounted) {
+        _showSessionCompleteDialog(provider);
       }
+    };
+  });
+}
 
-      _currentSessionStart = null;
-    });
-
-    await DBServicePomodoro.setLastSessionDate(DateTime.now());
-
-    _showSessionCompleteDialog();
-
-    if ((_isWorkSession && _settings.autoStartWorkSessions) ||
-        (!_isWorkSession && _settings.autoStartBreaks)) {
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) _startTimer();
-      });
-    }
-  }
-
-  Future<void> _saveCompletedSession() async {
-    if (_currentSessionStart == null) return;
-
-    final sessionType =
-        _isWorkSession
-            ? SessionType.work
-            : (_getBreakDuration() == _settings.longBreakDuration
-                ? SessionType.longBreak
-                : SessionType.shortBreak);
-
-    final plannedDuration =
-        _isWorkSession ? _settings.workDuration : _getBreakDuration();
-
-    final session = PomodoroSession(
-      startTime: _currentSessionStart!,
-      endTime: DateTime.now(),
-      sessionType: sessionType,
-      plannedDuration: plannedDuration,
-      actualDuration: plannedDuration,
-      completed: true,
-    );
-
-    await DBServicePomodoro.saveSession(session);
-  }
-
-  Future<void> _saveIncompleteSession() async {
-    if (_currentSessionStart == null) return;
-
-    final sessionType =
-        _isWorkSession
-            ? SessionType.work
-            : (_getBreakDuration() == _settings.longBreakDuration
-                ? SessionType.longBreak
-                : SessionType.shortBreak);
-
-    final plannedDuration =
-        _isWorkSession ? _settings.workDuration : _getBreakDuration();
-    final actualDuration = plannedDuration - _seconds;
-
-    final session = PomodoroSession(
-      startTime: _currentSessionStart!,
-      endTime: DateTime.now(),
-      sessionType: sessionType,
-      plannedDuration: plannedDuration,
-      actualDuration: actualDuration,
-      completed: false,
-    );
-
-    await DBServicePomodoro.saveSession(session);
-  }
-
-  int _getBreakDuration() {
-    return (_completedSessions % _settings.sessionsUntilLongBreak == 0 &&
-            _completedSessions > 0)
-        ? _settings.longBreakDuration
-        : _settings.shortBreakDuration;
-  }
-
-  void _showSessionCompleteDialog() {
+  void _showSessionCompleteDialog(PomodoroProvider provider) {
     String title =
-        _isWorkSession ? "Break Complete!" : "Work Session Complete!";
+        provider.isWorkSession ? "Break Complete!" : "Work Session Complete!";
     String message =
-        _isWorkSession
+        provider.isWorkSession
             ? "Ready for another work session?"
-            : "Time for a ${_getBreakDuration() == _settings.longBreakDuration ? 'long' : 'short'} break!";
+            : "Time for a ${provider.settings.longBreakDuration == provider.seconds ? 'long' : 'short'} break!";
 
     showDialog(
       context: context,
@@ -197,7 +47,7 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
               Text(message),
               const SizedBox(height: 10),
               Text(
-                'Sessions completed today: ${_getTodayCompletedSessions()}',
+                'Sessions completed today: ${provider.getTodayCompletedSessions()}',
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
             ],
@@ -207,7 +57,7 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
               child: const Text('View Stats'),
               onPressed: () {
                 Navigator.of(context).pop();
-                _showStatsDialog();
+                _showStatsDialog(provider);
               },
             ),
             TextButton(
@@ -222,17 +72,10 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
     );
   }
 
-  int _getTodayCompletedSessions() {
-    final todaySessions = DBServicePomodoro.getSessionsForDate(DateTime.now());
-    return todaySessions
-        .where((s) => s.completed && s.sessionType == SessionType.work)
-        .length;
-  }
-
-  void _showStatsDialog() {
-    final weeklyStats = DBServicePomodoro.getWeeklyStats();
-    final streakDays = DBServicePomodoro.getStreakDays();
-    final avgSessionLength = DBServicePomodoro.getAverageSessionLength();
+  void _showStatsDialog(PomodoroProvider provider) {
+    final weeklyStats = provider.getWeeklyStats();
+    final streakDays = provider.getStreakDays();
+    final avgSessionLength = provider.getAverageSessionLength();
 
     showDialog(
       context: context,
@@ -249,7 +92,7 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
               Text('• Break sessions: ${weeklyStats['breakSessions']}'),
               const SizedBox(height: 10),
               const Text('Overall:'),
-              Text('• Total completed: $_completedSessions'),
+              Text('• Total completed: ${provider.completedSessions}'),
               Text('• Current streak: $streakDays days'),
               Text('• Avg session: ${avgSessionLength.toStringAsFixed(1)} min'),
             ],
@@ -265,7 +108,16 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
     );
   }
 
-  void _showSettingsDialog() {
+  void _showSettingsDialog(PomodoroProvider provider) {
+    PomodoroSettings tempSettings = PomodoroSettings(
+      workDuration: provider.settings.workDuration,
+      shortBreakDuration: provider.settings.shortBreakDuration,
+      longBreakDuration: provider.settings.longBreakDuration,
+      sessionsUntilLongBreak: provider.settings.sessionsUntilLongBreak,
+      autoStartBreaks: provider.settings.autoStartBreaks,
+      autoStartWorkSessions: provider.settings.autoStartWorkSessions,
+    );
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -278,7 +130,9 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
                 children: [
                   ListTile(
                     title: const Text('Work Duration'),
-                    subtitle: Text('${_settings.workDuration ~/ 60} minutes'),
+                    subtitle: Text(
+                      '${tempSettings.workDuration ~/ 60} minutes',
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -286,8 +140,8 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
                           icon: const Icon(Icons.remove),
                           onPressed: () {
                             setDialogState(() {
-                              if (_settings.workDuration > 60) {
-                                _settings.workDuration -= 60;
+                              if (tempSettings.workDuration > 60) {
+                                tempSettings.workDuration -= 60;
                               }
                             });
                           },
@@ -296,7 +150,7 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
                           icon: const Icon(Icons.add),
                           onPressed: () {
                             setDialogState(() {
-                              _settings.workDuration += 60;
+                              tempSettings.workDuration += 60;
                             });
                           },
                         ),
@@ -305,19 +159,19 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
                   ),
                   SwitchListTile(
                     title: const Text('Auto-start breaks'),
-                    value: _settings.autoStartBreaks,
+                    value: tempSettings.autoStartBreaks,
                     onChanged: (value) {
                       setDialogState(() {
-                        _settings.autoStartBreaks = value;
+                        tempSettings.autoStartBreaks = value;
                       });
                     },
                   ),
                   SwitchListTile(
                     title: const Text('Auto-start work sessions'),
-                    value: _settings.autoStartWorkSessions,
+                    value: tempSettings.autoStartWorkSessions,
                     onChanged: (value) {
                       setDialogState(() {
-                        _settings.autoStartWorkSessions = value;
+                        tempSettings.autoStartWorkSessions = value;
                       });
                     },
                   ),
@@ -333,14 +187,10 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
             TextButton(
               child: const Text('Save'),
               onPressed: () async {
-                await DBServicePomodoro.saveSettings(_settings);
-                setState(() {
-                  _seconds =
-                      _isWorkSession
-                          ? _settings.workDuration
-                          : _getBreakDuration();
-                });
-                Navigator.of(context).pop();
+                await provider.saveSettings(tempSettings);
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
               },
             ),
           ],
@@ -349,181 +199,174 @@ class _PomodoroTimerPageState extends State<PomodoroTimerPage> {
     );
   }
 
-  String _formatTime(int seconds) {
-    int minutes = seconds ~/ 60;
-    int remainingSeconds = seconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
-  }
-
-  Color _getTimerColor() {
-    if (_isWorkSession) {
-      return Colors.red;
-    } else {
-      return _getBreakDuration() == _settings.longBreakDuration
-          ? Colors.blue
-          : Colors.green;
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    if (_isRunning && _currentSessionStart != null) {
-      _saveIncompleteSession();
-    }
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Pomodoro Timer',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.bar_chart, color: Colors.black),
-            onPressed: _showStatsDialog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.black),
-            onPressed: _showSettingsDialog,
-          ),
-        ],
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              decoration: BoxDecoration(
-                color: _getTimerColor().withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                _isWorkSession
-                    ? 'WORK SESSION'
-                    : (_getBreakDuration() == _settings.longBreakDuration
-                        ? 'LONG BREAK'
-                        : 'SHORT BREAK'),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: _getTimerColor(),
-                  letterSpacing: 1.5,
-                ),
+    return Consumer<PomodoroProvider>(
+      builder: (context, pomodoroProvider, child) {
+        return Scaffold(
+          backgroundColor: Colors.grey[100],
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            title: const Text(
+              'Pomodoro Timer',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 40),
-            Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    spreadRadius: 5,
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.bar_chart, color: Colors.black),
+                onPressed: () => _showStatsDialog(pomodoroProvider),
               ),
-              child: Center(
-                child: Text(
-                  _formatTime(_seconds),
-                  style: TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                    color: _getTimerColor(),
-                  ),
-                ),
+              IconButton(
+                icon: const Icon(Icons.settings, color: Colors.black),
+                onPressed: () => _showSettingsDialog(pomodoroProvider),
               ),
-            ),
-            const SizedBox(height: 10),
-            Row(
+            ],
+          ),
+          body: Center(
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ElevatedButton(
-                  onPressed: _isRunning ? _pauseTimer : _startTimer,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _getTimerColor(),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: pomodoroProvider.getTimerColor().withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    _isRunning ? 'PAUSE' : 'START',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(width: 20),
-                ElevatedButton(
-                  onPressed: _resetTimer,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[600],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
+                    pomodoroProvider.getSessionTypeText(),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: pomodoroProvider.getTimerColor(),
+                      letterSpacing: 1.5,
                     ),
                   ),
-                  child: const Text(
-                    'RESET',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 40),
+                Container(
+                  width: 200,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        spreadRadius: 5,
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      pomodoroProvider.formatTime(pomodoroProvider.seconds),
+                      style: TextStyle(
+                        fontSize: 48,
+                        fontWeight: FontWeight.bold,
+                        color: pomodoroProvider.getTimerColor(),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      onPressed:
+                          pomodoroProvider.isRunning
+                              ? () => pomodoroProvider.pauseTimer()
+                              : () => pomodoroProvider.startTimer(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: pomodoroProvider.getTimerColor(),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 30,
+                          vertical: 15,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                      ),
+                      child: Text(
+                        pomodoroProvider.isRunning ? 'PAUSE' : 'START',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    ElevatedButton(
+                      onPressed: () => pomodoroProvider.resetTimer(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey[600],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 30,
+                          vertical: 15,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                      ),
+                      child: const Text(
+                        'RESET',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 40),
+                Container(
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        spreadRadius: 1,
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Total Completed: ${pomodoroProvider.completedSessions}',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        'Today: ${pomodoroProvider.getTodayCompletedSessions()} sessions',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 40),
-            Container(
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    spreadRadius: 1,
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    'Total Completed: $_completedSessions',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Today: ${_getTodayCompletedSessions()} sessions',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

@@ -1,13 +1,13 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import '/models/hive/task.dart';
-import '/services/hive/db_service.dart';
-
+import 'package:provider/provider.dart';
+import '../models/hive/task.dart';
+import '../providers/task_provider.dart';
 
 class TaskPage extends StatefulWidget {
   final Task? task;
-  final int? taskKey; // Add this to support editing with key
+  final int? taskKey;
   const TaskPage({super.key, this.task, this.taskKey});
 
   @override
@@ -24,14 +24,11 @@ class _TaskPageState extends State<TaskPage> {
   Color _selectedFlagColor = Colors.red;
   String? _selectedWorkspace;
   Color? _selectedWorkspaceColor;
-  List<Subtask> _subtasks = []; // Changed to List<Subtask>
+  List<Subtask> _subtasks = [];
 
-  // Database service instance
-  final DBService _dbService = DBService.instance;
   bool _isEditing = false;
   int? _taskKey;
 
-  // Sample workspaces
   final Map<String, Color> _workspaces = {
     'Personal': const Color(0xFFFF6B6B),
     'Work': const Color(0xFF4A90E2),
@@ -39,7 +36,6 @@ class _TaskPageState extends State<TaskPage> {
     'Projects': const Color(0xFFFFD93D),
   };
 
-  // Flag colors
   final List<Color> _flagColors = [
     Colors.red,
     Colors.orange,
@@ -52,7 +48,6 @@ class _TaskPageState extends State<TaskPage> {
   @override
   void initState() {
     super.initState();
-    // If editing an existing task, populate the fields
     if (widget.task != null && widget.taskKey != null) {
       _populateFieldsForEditing();
     }
@@ -66,14 +61,12 @@ class _TaskPageState extends State<TaskPage> {
     _titleController.text = task.title;
     _selectedDate = task.date;
 
-    // Parse time from string
     try {
       final timeParts = task.time.split(':');
       if (timeParts.length >= 2) {
         int hour = int.parse(timeParts[0]);
         int minute = int.parse(timeParts[1].split(' ')[0]);
 
-        // Handle AM/PM
         if (task.time.toLowerCase().contains('pm') && hour != 12) {
           hour += 12;
         } else if (task.time.toLowerCase().contains('am') && hour == 12) {
@@ -83,20 +76,16 @@ class _TaskPageState extends State<TaskPage> {
         _selectedTime = TimeOfDay(hour: hour, minute: minute);
       }
     } catch (e) {
-      // If parsing fails, use current time
       _selectedTime = TimeOfDay.now();
     }
 
-    // Convert color value to Color
     _selectedFlagColor = Color(task.flagColorValue);
     _selectedWorkspace = task.workspace;
 
-    // Convert workspace color value to Color if available
     if (task.workspaceColorValue != null) {
       _selectedWorkspaceColor = Color(task.workspaceColorValue!);
     }
 
-    // Copy subtasks
     _subtasks = List.from(task.subtasks);
   }
 
@@ -160,7 +149,6 @@ class _TaskPageState extends State<TaskPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Task Title
               _buildSectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,10 +183,7 @@ class _TaskPageState extends State<TaskPage> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 16),
-
-              // Date and Time
               _buildSectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,10 +218,7 @@ class _TaskPageState extends State<TaskPage> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 16),
-
-              // Workspace Selection
               _buildSectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,10 +293,7 @@ class _TaskPageState extends State<TaskPage> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 16),
-
-              // Priority Flag
               _buildSectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,10 +346,7 @@ class _TaskPageState extends State<TaskPage> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 16),
-
-              // Subtasks
               _buildSectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,7 +371,6 @@ class _TaskPageState extends State<TaskPage> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    // Add subtask input
                     Row(
                       children: [
                         Expanded(
@@ -427,7 +402,6 @@ class _TaskPageState extends State<TaskPage> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    // Subtasks list
                     ..._subtasks.asMap().entries.map((entry) {
                       final index = entry.key;
                       final subtask = entry.value;
@@ -467,7 +441,6 @@ class _TaskPageState extends State<TaskPage> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 32),
             ],
           ),
@@ -568,7 +541,6 @@ class _TaskPageState extends State<TaskPage> {
   Future<void> _saveTask() async {
     if (_formKey.currentState!.validate()) {
       try {
-        // Show loading indicator
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -576,35 +548,30 @@ class _TaskPageState extends State<TaskPage> {
               (context) => const Center(child: CircularProgressIndicator()),
         );
 
-        // Create the task with proper constructor parameters
         final task = Task(
           title: _titleController.text.trim(),
           time: _selectedTime.format(context),
-          flagColorValue: _selectedFlagColor.value, // Convert Color to int
+          flagColorValue: _selectedFlagColor.value,
           subtasks: _subtasks,
           date: _selectedDate,
           workspace: _selectedWorkspace,
-          workspaceColorValue:
-              _selectedWorkspaceColor?.value, // Convert Color to int
+          workspaceColorValue: _selectedWorkspaceColor?.value,
         );
 
+        final taskProvider = context.read<TaskProvider>();
+
         if (_isEditing && _taskKey != null) {
-          // Update existing task
-          await _dbService.updateTask(_taskKey!, task);
+          await taskProvider.updateTask(_taskKey!, task);
         } else {
-          // Add new task
-          await _dbService.addTask(task);
+          await taskProvider.addTask(task);
         }
 
-        // Hide loading indicator
         if (mounted) Navigator.of(context).pop();
 
-        // Return success result to homepage
         if (mounted) {
-          Navigator.pop(context, true); // Return true to indicate success
+          Navigator.pop(context, true);
         }
 
-        // Show success message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -618,10 +585,8 @@ class _TaskPageState extends State<TaskPage> {
           );
         }
       } catch (e) {
-        // Hide loading indicator
         if (mounted) Navigator.of(context).pop();
 
-        // Show error message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -630,19 +595,16 @@ class _TaskPageState extends State<TaskPage> {
             ),
           );
         }
-        print('Error saving task: $e');
       }
     }
   }
 
   Future<void> _deleteTask() async {
     if (!_isEditing || _taskKey == null) {
-      // Clear all fields if not editing
       _clearFields();
       return;
     }
 
-    // Show confirmation dialog for deletion
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder:
@@ -665,7 +627,6 @@ class _TaskPageState extends State<TaskPage> {
 
     if (confirmed == true) {
       try {
-        // Show loading indicator
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -673,18 +634,14 @@ class _TaskPageState extends State<TaskPage> {
               (context) => const Center(child: CircularProgressIndicator()),
         );
 
-        // Delete the task
-        await _dbService.deleteTask(_taskKey!);
+        await context.read<TaskProvider>().deleteTask(_taskKey!);
 
-        // Hide loading indicator
         if (mounted) Navigator.of(context).pop();
 
-        // Return to homepage with success
         if (mounted) {
           Navigator.pop(context, true);
         }
 
-        // Show success message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -694,10 +651,8 @@ class _TaskPageState extends State<TaskPage> {
           );
         }
       } catch (e) {
-        // Hide loading indicator
         if (mounted) Navigator.of(context).pop();
 
-        // Show error message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -706,7 +661,6 @@ class _TaskPageState extends State<TaskPage> {
             ),
           );
         }
-        print('Error deleting task: $e');
       }
     }
   }
