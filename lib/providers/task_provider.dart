@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:tick_it/services/notification_service.dart';
 import '../models/hive/task.dart';
 import '../services/hive/db_service.dart';
 
 class TaskProvider extends ChangeNotifier {
   final DBService _dbService = DBService.instance;
+  final NotificationService _notificationService = NotificationService();
 
   // State variables
   List<Task> _allTasks = [];
@@ -23,12 +25,26 @@ class TaskProvider extends ChangeNotifier {
   String get searchQuery => _searchQuery;
   String get selectedWorkspace => _selectedWorkspace;
 
-  // Initialize and load tasks
+  /// Initialize and load tasks
   Future<void> initialize() async {
-    await loadTasks();
+    try {
+      // Initialize notification service
+      await _notificationService.init();
+
+      // Request notification permissions
+      await _notificationService.requestPermissions();
+
+      // Load tasks
+      await loadTasks();
+
+      // Refresh all notifications when app first starts
+      await _dbService.refreshAllNotifications();
+    } catch (e) {
+      debugPrint('Error initializing TaskProvider: $e');
+    }
   }
 
-  // Load all tasks
+  /// Load all tasks
   Future<void> loadTasks() async {
     try {
       _isLoading = true;
@@ -46,7 +62,7 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  // Apply current filters
+  /// Apply current filters
   void _applyFilters() {
     _filteredTasks = _allTasks;
 
@@ -83,7 +99,7 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  // Add new task
+  /// Add new task
   Future<void> addTask(Task task) async {
     try {
       await _dbService.addTask(task);
@@ -93,7 +109,7 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  // Update existing task
+  /// Update existing task
   Future<void> updateTask(int key, Task updatedTask) async {
     try {
       await _dbService.updateTask(key, updatedTask);
@@ -103,7 +119,7 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  // Delete task
+  /// Delete task
   Future<void> deleteTask(int key) async {
     try {
       await _dbService.deleteTask(key);
@@ -113,7 +129,7 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  // Toggle main task completion
+  /// Toggle main task completion
   Future<void> toggleMainTaskCompletion(int key) async {
     try {
       await _dbService.toggleMainTaskCompletion(key);
@@ -123,7 +139,7 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  // Toggle subtask completion
+  /// Toggle subtask completion
   Future<void> toggleSubtaskCompletion(int key, int subtaskIndex) async {
     try {
       await _dbService.toggleSubtaskCompletion(key, subtaskIndex);
@@ -133,7 +149,7 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
-  // Get task key by matching task properties
+  /// Get task key by matching task properties
   int? getTaskKey(Task task) {
     final box = _dbService.tasksBox;
     for (var key in box.keys) {
@@ -148,37 +164,37 @@ class TaskProvider extends ChangeNotifier {
     return null;
   }
 
-  // Get tasks by date
+  /// Get tasks by date
   List<Task> getTasksByDate(DateTime date) {
     return _dbService.getTasksByDate(date);
   }
 
-  // Get today's tasks
+  /// Get today's tasks
   List<Task> getTodayTasks() {
     return _dbService.getTodayTasks();
   }
 
-  // Get upcoming tasks
+  /// Get upcoming tasks
   List<Task> getUpcomingTasks() {
     return _dbService.getUpcomingTasks();
   }
 
-  // Get completed tasks
+  /// Get completed tasks
   List<Task> getCompletedTasks() {
     return _dbService.getCompletedTasks();
   }
 
-  // Get tasks by workspace
+  /// Get tasks by workspace
   List<Task> getTasksByWorkspace(String workspace) {
     return _dbService.getTasksByWorkspace(workspace);
   }
 
-  // Get all workspaces
+  /// Get all workspaces
   List<String> getAllWorkspaces() {
     return _dbService.getAllWorkspaces();
   }
 
-  // Set date filter
+  /// Set date filter
   void setDateFilter(DateTime date) {
     _selectedDate = date;
     _isDateFiltered = true;
@@ -186,7 +202,7 @@ class TaskProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Clear date filter
+  /// Clear date filter
   void clearDateFilter() {
     _selectedDate = DateTime.now();
     _isDateFiltered = false;
@@ -194,28 +210,28 @@ class TaskProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Set search query
+  /// Set search query
   void setSearchQuery(String query) {
     _searchQuery = query;
     _applyFilters();
     notifyListeners();
   }
 
-  // Set workspace filter
+  /// Set workspace filter
   void setWorkspaceFilter(String workspace) {
     _selectedWorkspace = workspace;
     _applyFilters();
     notifyListeners();
   }
 
-  // Clear workspace filter
+  /// Clear workspace filter
   void clearWorkspaceFilter() {
     _selectedWorkspace = '';
     _applyFilters();
     notifyListeners();
   }
 
-  // Clear all filters
+  /// Clear all filters
   void clearAllFilters() {
     _selectedDate = DateTime.now();
     _isDateFiltered = false;
@@ -225,7 +241,7 @@ class TaskProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Get task statistics
+  /// Get task statistics
   Map<String, int> getTaskStats() {
     final total = _allTasks.length;
     final completed = getCompletedTasks().length;
@@ -234,7 +250,7 @@ class TaskProvider extends ChangeNotifier {
     return {'total': total, 'completed': completed, 'pending': pending};
   }
 
-  // Get workspace statistics
+  /// Get workspace statistics
   Map<String, int> getWorkspaceStats(String workspace) {
     final tasks = getTasksByWorkspace(workspace);
     final completed =
@@ -249,5 +265,19 @@ class TaskProvider extends ChangeNotifier {
       'completed': completed,
       'pending': tasks.length - completed,
     };
+  }
+
+  /// Get notification debug info
+  Future<Map<String, dynamic>> getNotificationDebugInfo() async {
+    return await _notificationService.getNotificationDebugInfo();
+  }
+
+  /// Manually refresh all notifications
+  Future<void> refreshNotifications() async {
+    try {
+      await _dbService.refreshAllNotifications();
+    } catch (e) {
+      debugPrint('Error refreshing notifications: $e');
+    }
   }
 }

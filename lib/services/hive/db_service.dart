@@ -1,9 +1,13 @@
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:tick_it/services/notification_service.dart';
 import '../../models/hive/task.dart';
 
 class DBService {
   static const String _boxName = 'tasks';
   static Box<Task>? _box;
+
+  // Notification service instance
+  final NotificationService _notificationService = NotificationService();
 
   // Private constructor for singleton pattern
   DBService._();
@@ -41,7 +45,13 @@ class DBService {
   /// Add a new task
   Future<void> addTask(Task task) async {
     try {
-      await tasksBox.add(task);
+      final key = await tasksBox.add(task);
+      
+      // Schedule notification for the new task
+      await _notificationService.scheduleTaskNotification(task, key);
+      
+      // Update daily summary notification
+      await _updateDailySummary();
     } catch (e) {
       throw Exception('Failed to add task: $e');
     }
@@ -154,6 +164,12 @@ class DBService {
   Future<void> updateTask(int key, Task updatedTask) async {
     try {
       await tasksBox.put(key, updatedTask);
+      
+      // Reschedule notification for the updated task
+      await _notificationService.rescheduleTaskNotification(updatedTask, key);
+      
+      // Update daily summary notification
+      await _updateDailySummary();
     } catch (e) {
       throw Exception('Failed to update task: $e');
     }
@@ -166,6 +182,17 @@ class DBService {
       if (task != null) {
         task.isMainTaskCompleted = !task.isMainTaskCompleted;
         await task.save();
+        
+        // If task is completed, cancel its notification
+        if (task.isMainTaskCompleted) {
+          await _notificationService.cancelTaskNotification(key);
+        } else {
+          // If uncompleted, reschedule notification
+          await _notificationService.scheduleTaskNotification(task, key);
+        }
+        
+        // Update daily summary
+        await _updateDailySummary();
       } else {
         throw Exception('Task not found');
       }
@@ -182,6 +209,14 @@ class DBService {
         task.subtasks[subtaskIndex].isCompleted =
             !task.subtasks[subtaskIndex].isCompleted;
         await task.save();
+        
+        // If all subtasks are now completed, cancel notification
+        if (task.allSubtasksCompleted) {
+          await _notificationService.cancelTaskNotification(taskKey);
+        }
+        
+        // Update daily summary
+        await _updateDailySummary();
       } else {
         throw Exception('Task or subtask not found');
       }
@@ -243,6 +278,12 @@ class DBService {
   Future<void> deleteTask(int key) async {
     try {
       await tasksBox.delete(key);
+      
+      // Cancel notification for deleted task
+      await _notificationService.cancelTaskNotification(key);
+      
+      // Update daily summary notification
+      await _updateDailySummary();
     } catch (e) {
       throw Exception('Failed to delete task: $e');
     }
@@ -252,6 +293,14 @@ class DBService {
   Future<void> deleteTasks(List<int> keys) async {
     try {
       await tasksBox.deleteAll(keys);
+      
+      // Cancel notifications for all deleted tasks
+      for (final key in keys) {
+        await _notificationService.cancelTaskNotification(key);
+      }
+      
+      // Update daily summary notification
+      await _updateDailySummary();
     } catch (e) {
       throw Exception('Failed to delete tasks: $e');
     }
@@ -261,6 +310,12 @@ class DBService {
   Future<void> clearAllTasks() async {
     try {
       await tasksBox.clear();
+      
+      // Cancel all task notifications
+      await _notificationService.cancelAllTaskNotifications();
+      
+      // Update daily summary with 0 tasks
+      await _notificationService.scheduleDailySummaryNotification(0);
     } catch (e) {
       throw Exception('Failed to clear all tasks: $e');
     }
@@ -369,6 +424,42 @@ class DBService {
           .toList();
     } catch (e) {
       throw Exception('Failed to get tasks by workspace color: $e');
+    }
+  }
+
+  /// Update daily summary notification based on today's tasks
+  Future<void> _updateDailySummary() async {
+    try {
+      final todayTasks = getTodayTasks();
+      await _notificationService.updateDailySummaryNotification(todayTasks);
+    } catch (e) {
+      // Don't throw error, just log it
+      print('Failed to update daily summary notification: $e');
+    }
+  }
+
+  /// Refresh all task notifications when app first starts
+  Future<void> refreshAllNotifications() async {
+    try {
+      // Get all tasks with their keys
+      final Map<int, Task> tasksWithKeys = {};
+      for (final key in tasksBox.keys) {
+        final task = tasksBox.get(key);
+        if (task != null) {
+          // Only add incomplete tasks
+          if (!task.isMainTaskCompleted && !task.allSubtasksCompleted) {
+            tasksWithKeys[key as int] = task;
+          }
+        }
+      }
+
+      // Refresh all notifications
+      await _notificationService.refreshAllTaskNotifications(tasksWithKeys);
+      
+      // Update daily summary
+      await _updateDailySummary();
+    } catch (e) {
+      print('Failed to refresh notifications: $e');
     }
   }
 }
